@@ -2,17 +2,6 @@ import numpy as np
 import av
 import subprocess
 import datetime
-from av import time_base as AV_TIME_BASE
-
-import pdb
-
-# from Caleb's top bottom code
-
-def count_frames(file_name):
-    with av.open(file_name, 'r') as reader:
-        return reader.streams.video[0].frames          
-
-
 
 
 class videoWriter():
