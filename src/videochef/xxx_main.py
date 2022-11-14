@@ -15,97 +15,22 @@ import src.videochef.io as io
 import imageio as iio
 import pdb
 
-def generate_fake_movie(nframes=1797, n_loops=10):
-    data, target = load_digits(return_X_y=True)
-    data = data*16
-    with io.videoWriter('./digits.avi') as vid:
-        for _ in range(n_loops):
-            for i in range(nframes):
-                frame = cv2.resize(data[i,:], (data.shape[1]*4, data.shape[0]*4))  # scale up to make it take longer
-                vid.append(frame.astype('uint8'))
 
-def generate_labeled_movie(nframes=10000, n_loops=1):
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    with io.videoWriter('./labeled_frames.avi') as vid:
-        for _ in range(n_loops):
-            for i in range(nframes):
-                frame = cv2.putText(np.zeros((400, 400)), f'{i}', (200,200), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
-                vid.append(frame.astype('uint8'))
-
-def process_frame(frame):
-    # Normalize the frame's pixel vals around half max brightness (just something stupid that isn't instant)
-    avg = np.mean(frame)
-    std = np.std(frame)
-    frame = ((frame - avg)/std + 255/2).astype('uint8')
-    return frame
-
-def dummy_process_frame(frame):
-    return frame
-
-def parallel_dummy_process_frame(fname, frame_ixs, i):
-    print(f'starting reader {i}')
-    with io.videoReader(fname, frame_ixs) as vid:
-        for iFrame, frame in enumerate(vid):
-            if iFrame % 100 == 0:
-                print(f'Decoded frame from reader {i}')
-            _ = dummy_process_frame(frame)
-
-def parallel_writing_process_frame(vid_path, frame_batch, reporter_val, writer_path, analysis_func=process_frame):
-    with io.videoReader(vid_path, np.array(frame_batch), reporter_val) as vid, io.videoWriter(writer_path) as writer:
-        for frame in vid:
-            writer.append(analysis_func(frame))
+# def parallel_dummy_process_frame(fname, frame_ixs, i):
+#     print(f'starting reader {i}')
+#     with io.videoReader(fname, frame_ixs) as vid:
+#         for iFrame, frame in enumerate(vid):
+#             if iFrame % 100 == 0:
+#                 print(f'Decoded frame from reader {i}')
+#             _ = dummy_process_frame(frame)
 
 
-
-def gen_batch_sequence(nframes, chunk_size, overlap, offset=0):
-    '''
-    Generates batches used to chunk videos prior to extraction.
-    Parameters
-    ----------
-    nframes (int): total number of frames
-    chunk_size (int): desired chunk size
-    overlap (int): number of overlapping frames
-    offset (int): frame offset
-    Returns
-    -------
-    Yields list of batches
-    '''
-
-    seq = range(offset, nframes)
-    out = []
-    for i in range(0, len(seq) - overlap, chunk_size - overlap):
-        out.append(seq[i:i + chunk_size])
-    return out
-
-def chunksize_test_func(chunk):
-    return (min(chunk), max(chunk))
+# def chunksize_test_func(chunk):
+#     return (min(chunk), max(chunk))
 
 def main():
 
-    # generate some fake video. 
-    # 17970 frames
-    test_movie = './digits.avi'
-    if not exists(test_movie):
-        print('making movie')
-        generate_fake_movie()
-    nframes = get_reader(test_movie).count_frames()
-
-    # test_movie = './labeled_frames.avi'
-    # if not exists(test_movie):
-        # print('making movie')
-        # generate_labeled_movie()
-    # nframes = get_reader(test_movie).count_frames()
-
-    # first, process it serially. --> takes 112 seconds (160 it/s)
-    start_time = time.time()
-    # with my_io.videoReader(test_movie, np.arange(6000, 6010), reporter_val=1) as vid, \
-    with io.videoReader(test_movie) as vid, \
-        io.videoWriter('./out/proc.avi') as proc_vid:
-        for frame in vid:
-            proc_vid.append(process_frame(frame))
-    end_time = time.time()
-    dt = end_time - start_time
-    print(f'Serial processing took {end_time - start_time} seconds ({nframes/dt} it/s)')
+    
 
     # print('Reading through video serially with no processing...')
     # takes 30 sec, (~500 it/s)
