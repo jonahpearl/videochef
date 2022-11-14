@@ -1,48 +1,40 @@
-from os.path import join, exists
-from tqdm.contrib.concurrent import process_map
-from itertools import repeat
+from os.path import join, dirname, realpath, isfile
+from os import listdir, makedirs, rmdir, remove
 from videochef.io import videoReader, videoWriter
-from videochef.util import dummy_process, gen_batch_sequence, count_frames
-from videochef.chef import parallel_proc_frame
+from videochef.util import dummy_process, count_frames
+from videochef.chef import video_chef
 import numpy as np
+import pytest
+
+FIXTURE_DIR = join(dirname(realpath(__file__)), 'test_files')
 
 
-def compare_serial_and_cheffed_labeled_avi():
+@pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
+def test_compare_serial_and_cheffed_labeled_avi(datafiles):
 
-    test_movie = '../data/labeled_frames.avi'
-    nframes = count_frames(test_movie)
-    tmp_dir = '../data/out'
-
-    #TODO: add tmp testing dir
+    # Set up
+    path = str(datafiles)
+    assert len(listdir(path)) == 1
+    assert isfile(join(path, 'labeled_frames.avi'))
+    test_movie = join(path, 'labeled_frames.avi')
+    tmp_dir = join(dirname(realpath(__file__)), 'tmp')  # TODO: update this with some pytest magic so can have multipel tests not interfere with each other
+    makedirs(tmp_dir)
 
     # First, process it serially
     print('Processing serially...')
     serial_vid_name = join(tmp_dir, 'proc.avi')
     with videoReader(test_movie) as raw_vid, \
-        videoWriter(serial_vid_name) as serial_vid:
+         videoWriter(serial_vid_name) as serial_vid:
         for frame in raw_vid:
             serial_vid.append(dummy_process(frame))
 
     # Then in parallel
-    print('Processing in parallel...')
-    max_workers = 3
-    frame_chunksize = 500
-    batch_seq = gen_batch_sequence(nframes, frame_chunksize, 0)
-    parallel_writer_names = [join(tmp_dir, f'proc_{i}.avi') for i in range(len(batch_seq))]
-    reporter_vals = (None for i in range(len(batch_seq)))
-    process_map(parallel_proc_frame, repeat(test_movie), batch_seq, reporter_vals, parallel_writer_names, chunksize=1, max_workers=max_workers)
-    print('Stitching parallel videos')
-    stitched_vid_name = join(tmp_dir, 'stitched_proc.avi')
-    with videoWriter(stitched_vid_name) as stitched_vid:
-        for i, vid_name in enumerate(parallel_writer_names):
-            print(f'Stitching video {i}')
-            with videoReader(vid_name) as cheffed_vid:
-                for frame in cheffed_vid:
-                    stitched_vid.append(frame)
+    stitched_vid_name = video_chef(dummy_process, test_movie, tmp_dir=tmp_dir)
 
-
+    # Assert equal num frames
     assert count_frames(serial_vid_name) == count_frames(stitched_vid_name)
 
+    # Check all frames are equal
     equal_frames = np.zeros(count_frames(serial_vid_name))
     non_equal_counter = 0
     with videoReader(serial_vid_name) as serial_vid, videoReader(stitched_vid_name) as stitched_vid:
@@ -52,5 +44,9 @@ def compare_serial_and_cheffed_labeled_avi():
                 non_equal_counter += 1
             else:
                 equal_frames[iFrame] = 1
-
     assert non_equal_counter == 0
+
+    # Clean up
+    for file in listdir(tmp_dir):
+        remove(join(tmp_dir, file))
+    rmdir(tmp_dir)
