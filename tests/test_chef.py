@@ -8,7 +8,7 @@ import pytest
 
 import pdb
 
-FIXTURE_DIR = join(dirname(realpath(__file__)), 'test_data')
+FIXTURE_DIR = join(dirname(realpath(__file__)), '../test_data')
 
 
 @pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
