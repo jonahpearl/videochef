@@ -5,7 +5,7 @@ from tqdm.contrib.concurrent import process_map
 from itertools import repeat
 from functools import partial
 from videochef.io import videoReader, videoWriter
-from videochef.util import gen_batch_sequence, count_frames
+from videochef.util import make_batch_sequence, count_frames
 
 
 def parallel_proc_frame(vid_path, frame_batch, reporter_val, writer_path, analysis_func=None):
@@ -16,7 +16,7 @@ def parallel_proc_frame(vid_path, frame_batch, reporter_val, writer_path, analys
 
 def video_chef(func, path_to_vid, max_workers=3, frame_batch_size=500, vid_read_reporter=False, tmp_dir=None, proc_suffix='_PROC'):
     nframes = count_frames(path_to_vid)
-    batch_seq = gen_batch_sequence(nframes, frame_batch_size, 0)
+    batch_seq = make_batch_sequence(nframes, frame_batch_size, 0)
     vid_name, vid_ext = splitext(basename(path_to_vid))
     vid_dir = dirname(path_to_vid)
 
@@ -38,7 +38,8 @@ def video_chef(func, path_to_vid, max_workers=3, frame_batch_size=500, vid_read_
                 reporter_vals,
                 parallel_writer_names,
                 chunksize=1,
-                max_workers=max_workers)
+                max_workers=max_workers,
+                total=len(batch_seq))
 
     print('Stitching parallel videos')
     stitched_vid_name = join(tmp_dir, vid_name + proc_suffix + vid_ext)
