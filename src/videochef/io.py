@@ -2,7 +2,9 @@ import numpy as np
 import av
 import subprocess
 import datetime
+import os
 
+import pdb
 
 class videoWriter():
     def __init__(self, file_name, **ffmpeg_options):
@@ -22,10 +24,12 @@ class videoWriter():
         self.pipe = write_frames(self.file_name, frames, pipe=self.pipe, **self.ffmpeg_options)
 
 class videoReader():
-    def __init__(self, file_name, frame_ixs=None, reporter_val=None):
+    def __init__(self, file_name, frame_ixs=None, reporter_val=None, mp4_to_gray=True):
         self.file_name = file_name
+        self.file_ext = os.path.splitext(self.file_name)[1]
         self.frame_ixs = frame_ixs
         self.reporter_val = reporter_val
+        self.mp4_to_gray = mp4_to_gray
 
         if frame_ixs is not None:
             self.first_frame_ix = int(np.min(frame_ixs))
@@ -40,7 +44,9 @@ class videoReader():
     def __enter__(self):
         self.reader = av.open(self.file_name, 'r')
         self.reader.streams.video[0].thread_type = "AUTO"
-        
+        self.codec = self.reader.streams.video[0].name
+        self.pix_fmt = self.reader.streams.video[0].format.name
+
         # Create frame mask
         frame_mask = np.zeros(self.reader.streams.video[0].frames)
         if self.frame_ixs is not None:
@@ -80,17 +86,27 @@ class videoReader():
         # Handle initial boundary condition from precise seeking
         if self.first_frame_to_yield is not None:
             self.ix_offset = 1
-            yield self.first_frame_to_yield.to_ndarray()
+            yield self.convert_frame_to_np(self.first_frame_to_yield)
         else:
             self.ix_offset = 0
 
         # Then yield subsequent frames
-        for relative_ix,frame in enumerate(reader):
+        for relative_ix, frame in enumerate(reader):
             ix = relative_ix + self.first_frame_ix + self.ix_offset # since enumerate always starts at 0, even if frame is not 0th frame
             if self.reporter_val: print(f'read frame {ix} from reader {self.reporter_val}')
             if self.final_frame_ix is not None and (ix > self.final_frame_ix): break  # short circuit to speed up multiprocessing
-            if frame_mask[ix]: yield frame.to_ndarray()
-            
+            if frame_mask[ix]:
+                yield self.convert_frame_to_np(frame)
+    
+    
+    def convert_frame_to_np(self, frame):
+        if self.file_ext == '.avi' and self.codec == 'ffv1' and self.pix_fmt == 'gray':
+            return frame.to_ndarray()
+        elif self.file_ext == '.mp4' and self.codec == 'h264' and self.pix_fmt == 'yuvj420p':
+            if self.mp4_to_gray:
+                return np.array(frame.to_image())[:,:,0]
+            else:
+                return np.array(frame.to_image())
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.reader.close()            
