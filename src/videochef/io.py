@@ -66,11 +66,13 @@ class videoReader():
     def _precise_seek(self, frame_num_to_seek):
         fps = self.reader.streams.video[0].average_rate
         time_base = self.reader.streams.video[0].time_base
-        if not fps == 1/time_base:
-            raise ValueError('Videoreader expects timebase to be 1 per frame!')
+        # if not fps == 1/time_base:
+        #     raise ValueError('Videoreader expects timebase to be 1 per frame!')
         self.reader.seek(frame_num_to_seek, stream=self.reader.streams.video[0])
         for frame in self._plain_frame_gen():
-            if frame.pts >= frame_num_to_seek:
+            frame_num = frame.time * fps  # this seems more reliable
+            # if frame.pts >= frame_num_to_seek:  # fails on mp4s
+            if frame_num >= frame_num_to_seek:
                 return frame
 
     def frame_gen(self, reader, frame_mask):
