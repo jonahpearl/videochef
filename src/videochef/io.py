@@ -24,7 +24,7 @@ class videoWriter():
         self.pipe = write_frames(self.file_name, frames, pipe=self.pipe, **self.ffmpeg_options)
 
 class videoReader():
-    def __init__(self, file_name, frame_ixs=None, reporter_val=None, mp4_to_gray=True):
+    def __init__(self, file_name, frame_ixs=None, reporter_val=None, mp4_to_gray=False):
         self.file_name = file_name
         self.file_ext = os.path.splitext(self.file_name)[1]
         self.frame_ixs = frame_ixs
@@ -46,6 +46,9 @@ class videoReader():
         self.reader.streams.video[0].thread_type = "AUTO"
         self.codec = self.reader.streams.video[0].name
         self.pix_fmt = self.reader.streams.video[0].format.name
+        self.rate = self.reader.streams.video[0].average_rate
+        self.time_base = self.reader.streams.video[0].time_base
+        self.start_time = self.reader.streams.video[0].start_time
 
         # Create frame mask
         frame_mask = np.zeros(self.reader.streams.video[0].frames)
@@ -65,19 +68,19 @@ class videoReader():
         return self.frame_gen(self.reader.decode(video=0), frame_mask)
 
     def _plain_frame_gen(self):
-        for packet in self.reader.demux(self.reader.streams.video[0]):
+        for packet in self.reader.demux(self.reader.streams.video[0]):  #TODO: check if packet has time attribute? If so, can use packet time instead of frame time here so we dont hvae to decode and it'll speed it up?
             for frame in packet.decode():
                 yield frame
 
     def _precise_seek(self, frame_num_to_seek):
-        fps = self.reader.streams.video[0].average_rate
-        time_base = self.reader.streams.video[0].time_base
-        # if not fps == 1/time_base:
-        #     raise ValueError('Videoreader expects timebase to be 1 per frame!')
-        self.reader.seek(frame_num_to_seek, stream=self.reader.streams.video[0])
+        """See https://github.com/PyAV-Org/PyAV/blob/b65f5a9f93144d2eadbb3e460bb45d869f5ce2fe/scratchpad/second_seek_example.py
+        """
+        target_sec = frame_num_to_seek * 1 / self.rate
+        target_pts = int(target_sec / self.time_base) + self.start_time
+        self.reader.seek(target_pts, stream=self.reader.streams.video[0])
         for frame in self._plain_frame_gen():
-            frame_num = frame.time * fps  # this seems more reliable
             # if frame.pts >= frame_num_to_seek:  # fails on mp4s
+            frame_num = frame.time * self.rate  # this seems more reliable
             if frame_num >= frame_num_to_seek:
                 return frame
 
@@ -102,12 +105,14 @@ class videoReader():
     def convert_frame_to_np(self, frame):
         if self.file_ext == '.avi' and self.codec == 'ffv1' and self.pix_fmt == 'gray':
             return frame.to_ndarray()
-        elif self.file_ext == '.mp4' and self.codec == 'h264' and self.pix_fmt == 'yuvj420p':
+        elif (self.file_ext == '.mp4' and self.codec == 'h264' and self.pix_fmt == 'yuvj420p') or \
+             (self.file_ext == '.mp4' and self.codec == 'mpeg4' and self.pix_fmt == 'yuv420p')  :
             if self.mp4_to_gray:
                 return np.array(frame.to_image())[:,:,0]
             else:
                 return np.array(frame.to_image())
-
+        else:
+            raise NotImplementedError(f'Video format {self.file_ext} with codec {self.codec} and px fmt {self.pix_fmt} is not supported yet.')
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.reader.close()            
                 
