@@ -1,7 +1,7 @@
 import numpy as np
 import av
 
-def gen_batch_sequence(nframes, chunk_size, overlap, offset=0):
+def make_batch_sequence(nframes, chunk_size, overlap, offset=0):
     '''
     Generates batches used to chunk videos prior to extraction.
     Parameters
@@ -12,7 +12,7 @@ def gen_batch_sequence(nframes, chunk_size, overlap, offset=0):
     offset (int): frame offset
     Returns
     -------
-    Yields list of batches
+    Returns list of batches
     '''
 
     seq = range(offset, nframes)
