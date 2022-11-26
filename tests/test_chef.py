@@ -39,7 +39,11 @@ def test_precise_seek_mp4_h264(datafiles):
     frame_to_check = 2221
     with videoReader(test_movie, np.array([frame_to_check]), mp4_to_gray=True) as vid:
         for frame in vid:
-            assert np.sum(frame[0:10, :]) > (240*10*400)  # h264 compression means not all px at exactly 255, give it some buffer space.
+            marker_pix_val = 255  
+            buffer_val = 15  # h264 compression means not all px at exactly 255, give it some buffer space.
+            n_marked_rows = 10
+            n_cols = 400
+            assert np.sum(frame[0:10, :]) > ((marker_pix_val - buffer_val) * n_marked_rows * n_cols)  
 
 
 @pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
