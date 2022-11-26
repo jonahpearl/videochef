@@ -46,6 +46,8 @@ def test_precise_seek_mp4_h264(datafiles):
             assert np.sum(frame[0:10, :]) > ((marker_pix_val - buffer_val) * n_marked_rows * n_cols)  
 
 
+#TODO: make test for global kwargs + frame by frame kwargs
+
 @pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
 def test_compare_serial_and_cheffed_labeled_avi(datafiles):
 
