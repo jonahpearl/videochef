@@ -25,6 +25,26 @@ def make_batch_sequence(nframes, chunk_size, overlap, offset=0):
     return out
 
 
+def unwrap_dictionary(dict_):
+    """Take a dictionary of form {'a': vals, 'b': vals, ...} and convert to a list of form [{'a': val1, 'b': val2, ...}, {'a': val2, 'b': val2, ...}, ...]
+        Vals must all be same length!
+        
+    Arguments:
+        dict_ {[type]} -- [description]
+    """
+
+    # Transform kwarg dict from {'a': vals, 'b': vals, ...} into [{'a': val1, 'b': val1,...}, {'a': val2, 'b': val2,...}, ...]
+    tmp_lists = []  # Intermdiate step: first unpack each value for each dict [[{'a':val1, 'a': val2}], [{'b': val1}, {'b':val2}], ...]
+    for key in dict_.keys():
+        kwarg_lists.append([{key:v} for v in dict_[key]])
+    
+    # Then put into desired final form
+    final_list = []
+    for dicts in zip(*tmp_lists):
+        final_list.append({k:v for d in dicts for k,v in d.items()})
+
+    return final_list
+
 def dummy_process(frame):
     # Normalize the frame's pixel vals around half max brightness (just something stupid that isn't instant)
     avg = np.mean(frame)
