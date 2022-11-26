@@ -15,6 +15,9 @@ def make_batch_sequence(nframes, chunk_size, overlap, offset=0):
     Returns list of batches
     '''
 
+    if overlap >= chunk_size:
+        raise ValueError('Overlap must be less than chunk size')
+    
     seq = range(offset, nframes)
     out = []
     for i in range(0, len(seq) - overlap, chunk_size - overlap):
