@@ -8,7 +8,6 @@ data/
 __pycache__/
 *.so
 *~
-*.avi
 
 # due to using tox and pytest
 .tox
