@@ -4,25 +4,24 @@ import numpy as np
 from tqdm.contrib.concurrent import process_map
 from itertools import repeat
 from functools import partial
-from videochef.io import videoReader, videoWriter
+from videochef.io import VideoReader, VideoWriter
 from videochef.util import make_batch_sequence, count_frames, unwrap_dictionary
 
 import pdb
 
-def parallel_proc_frame(vid_path, frame_batch, reporter_val, writer_path, kwarg_dict_list, analysis_func=None):
+def parallel_proc_frame(vid_path, video_reader_kwargs, writer_path, frame_by_frame_kwarg_dicts, analysis_func=None):
     """Helper function to pipe + process the video frames from one vid to another.
         
         NB: all args must be positional except analysis func for process_map to work correctly. 
 
     Arguments:
         vid_path {str} -- path to the video
-        frame_batch {range} -- which frames to process
-        reporter_val {int} -- For debugging. If True, videoReader will report which video frames its reading.
+        video_reader_kwargs {dict} -- kwargs to pass to VideoReader
         writer_path {str} -- where to write the processed video
-
+        frame_by_frame_kwarg_dicts -- list of dictionaries of frame-by-frame kwargs (eg [{'key1': val1, 'key2': val1, ...}, {'key1': val2, 'key2': val2, ...}, ...])
+        
     Keyword Arguments:
         analysis_func {function} -- the processing function. Must accept one video frame as a sole positional arg. Must return either a frame (if output_type is 'video') or a dictionary of scalars (if output_type is 'arrays') (default: {None}
-        kwarg_dict -- dictionary of frame-by-frame kwargs (eg {'key1': vals, 'key2': vals}, where vals is an array of same length as frame_batch)
 
     Raises:
         ValueError: if no analysis function is provided.
@@ -31,20 +30,20 @@ def parallel_proc_frame(vid_path, frame_batch, reporter_val, writer_path, kwarg_
         raise ValueError('Please provide an analysis function!')
     
     output_ext = splitext(writer_path)[1]
-    
+    batch_len = len(video_reader_kwargs['frame_ixs'])
     movie_types = ['.avi', '.mp4']
     if output_ext in movie_types:
-        with videoReader(vid_path, np.array(frame_batch), reporter_val) as vid, videoWriter(writer_path) as writer:
-            for iFrame, (frame, frame_kwarg_dict) in enumerate(zip(vid, kwarg_dict_list)):
+        with VideoReader(vid_path, **video_reader_kwargs) as vid, VideoWriter(writer_path) as writer:
+            for iFrame, (frame, frame_kwarg_dict) in enumerate(zip(vid, frame_by_frame_kwarg_dicts)):
                 writer.append(analysis_func(frame, **frame_kwarg_dict))
     elif output_ext == '.npz':
         output = {}
-        with videoReader(vid_path, np.array(frame_batch), reporter_val) as vid:
-            for iFrame, (frame, frame_kwarg_dict) in enumerate(zip(vid, kwarg_dict_list)):
+        with VideoReader(vid_path, **video_reader_kwargs) as vid:
+            for iFrame, (frame, frame_kwarg_dict) in enumerate(zip(vid, frame_by_frame_kwarg_dicts)):
                 results = analysis_func(frame, **frame_kwarg_dict)
                 if iFrame == 0:
                     for key in results.keys():
-                        output[key] = np.zeros((len(frame_batch), *results[key].shape))
+                        output[key] = np.zeros((batch_len, *results[key].shape))
                 for key, val in results.items():
                     output[key][iFrame,...] = val
         np.savez(writer_path, **output)
@@ -59,7 +58,8 @@ def video_chef(
     max_workers=3, 
     frame_batch_size=500, 
     every_nth_frame=1,
-    vid_read_reporter=False, 
+    vid_read_reporter=False,
+    video_reader_kwargs=None, 
     tmp_dir=None, 
     proc_suffix='_PROC'
     ):
@@ -97,6 +97,9 @@ def video_chef(
     else:
         assert exists(tmp_dir)
 
+    if video_reader_kwargs is None:
+        video_reader_kwargs = {}
+
     print('Processing in parallel...')
 
     ### Prep iters for process_map ###
@@ -108,23 +111,23 @@ def video_chef(
     elif output_type == 'arrays':
         parallel_writer_names = [join(tmp_dir, f'proc_{i}.npz') for i in range(len(batch_seq))]
     
-    # Set up debugging if desired
+    # Set up kwargs for video readers
     if vid_read_reporter:
         reporter_vals = (i for i in range(len(batch_seq)))
     else:
         reporter_vals = (None for i in range(len(batch_seq)))
+    partial_reader_kwarg_lists = [{'frame_ixs': np.array(batch), 'reporter_val': reporter_val, **video_reader_kwargs} for batch, reporter_val in zip(batch_seq, reporter_vals)]
 
     # Get chunks of frame-by-frame kwargs if needed
     if func_frame_kwargs is None:
         func_frame_kwargs = {}
     kwarg_dict_list = np.array(unwrap_dictionary(func_frame_kwargs), dtype='object')
-
     if len(kwarg_dict_list) == 0:
-        partial_kwarg_lists = [[{} for _ in batch] for batch in batch_seq]    
-    elif len(kwarg_dict_list) == nframes:
-        partial_kwarg_lists = [kwarg_dict_list[batch] for batch in batch_seq]
+        partial_fr_by_fr_kwarg_list = [[{} for _ in batch] for batch in batch_seq]    
+    elif len(kwarg_dict_list) == n_expected_frames:
+        partial_fr_by_fr_kwarg_list = [kwarg_dict_list[batch] for batch in batch_seq]
     else:
-        raise ValueError(f'Expected empty func_frame_kwargs or lists of length nframes ({nframes}), but got lists of length {len(kwarg_dict_list)}')
+        raise ValueError(f'Expected empty func_frame_kwargs or lists of length n_expected_frames ({n_expected_frames}), but got lists of length {len(kwarg_dict_list)}. Did you pass every_nth_frame correctly?')
 
     ### Do the parallel processing ###
     
@@ -140,10 +143,9 @@ def video_chef(
     # Importantly, chunksize=1 means workers get only one item from each iterable at once; nb that each single "chunk" will be frame_batch_size frames!
     process_map(proc_func,
                 repeat(path_to_vid),
-                batch_seq,
-                reporter_vals,
+                partial_reader_kwarg_lists,
                 parallel_writer_names,
-                partial_kwarg_lists,
+                partial_fr_by_fr_kwarg_list,
                 chunksize=1,
                 max_workers=max_workers,
                 total=len(batch_seq))
@@ -151,10 +153,10 @@ def video_chef(
     if output_type == 'video':
         print('Stitching parallel videos')
         stitched_vid_name = join(tmp_dir, vid_name + proc_suffix + vid_ext)
-        with videoWriter(stitched_vid_name) as stitched_vid:
+        with VideoWriter(stitched_vid_name) as stitched_vid:
             for i, vid_name in enumerate(parallel_writer_names):
                 print(f'Stitching video {i}')
-                with videoReader(vid_name) as cheffed_vid:
+                with VideoReader(vid_name) as cheffed_vid:
                     for frame in cheffed_vid:
                         stitched_vid.append(frame)
 

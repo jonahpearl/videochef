@@ -1,7 +1,7 @@
 from os.path import join, dirname, realpath, isfile, exists
 from os import listdir, makedirs, rmdir, remove
 import os
-from videochef.io import videoReader, videoWriter
+from videochef.io import VideoReader, VideoWriter
 from videochef.util import dummy_process, dummy_process_arrays, count_frames
 from videochef.chef import video_chef
 import numpy as np
@@ -29,8 +29,8 @@ def test_compare_serial_and_cheffed_labeled_avi(datafiles):
         # First, process it serially
         print('Processing serially...')
         serial_vid_name = join(tmp_dir, 'proc.avi')
-        with videoReader(test_movie) as raw_vid, \
-            videoWriter(serial_vid_name) as serial_vid:
+        with VideoReader(test_movie) as raw_vid, \
+            VideoWriter(serial_vid_name) as serial_vid:
             for frame in raw_vid:
                 serial_vid.append(dummy_process(frame))
 
@@ -43,7 +43,7 @@ def test_compare_serial_and_cheffed_labeled_avi(datafiles):
         # Check all frames are equal
         equal_frames = np.zeros(count_frames(serial_vid_name))
         non_equal_counter = 0
-        with videoReader(serial_vid_name) as serial_vid, videoReader(stitched_vid_name) as stitched_vid:
+        with VideoReader(serial_vid_name) as serial_vid, VideoReader(stitched_vid_name) as stitched_vid:
             for iFrame, (serial_frame, stitched_frame) in enumerate(zip(serial_vid, stitched_vid)):
                 if not np.all(serial_frame == stitched_frame):
                     print(f'Frame {iFrame} not equal in serial and stitched videos')
