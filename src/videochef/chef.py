@@ -21,7 +21,7 @@ def parallel_proc_frame(vid_path, frame_batch, reporter_val, writer_path, kwarg_
         writer_path {str} -- where to write the processed video
 
     Keyword Arguments:
-        analysis_func {function} -- the processing function. Must accept one video frame as a sole positional arg.
+        analysis_func {function} -- the processing function. Must accept one video frame as a sole positional arg. Must return either a frame (if output_type is 'video') or a dictionary of scalars (if output_type is 'arrays') (default: {None}
         kwarg_dict -- dictionary of frame-by-frame kwargs (eg {'key1': vals, 'key2': vals}, where vals is an array of same length as frame_batch)
 
     Raises:
@@ -30,23 +30,49 @@ def parallel_proc_frame(vid_path, frame_batch, reporter_val, writer_path, kwarg_
     if analysis_func is None:
         raise ValueError('Please provide an analysis function!')
     
-    with videoReader(vid_path, np.array(frame_batch), reporter_val) as vid, videoWriter(writer_path) as writer:
-        for iFrame, (frame, frame_kwarg_dict) in enumerate(zip(vid, kwarg_dict_list)):
-            writer.append(analysis_func(frame, **frame_kwarg_dict))
-            
+    output_ext = splitext(writer_path)[1]
+    
+    movie_types = ['.avi', '.mp4']
+    if output_ext in movie_types:
+        with videoReader(vid_path, np.array(frame_batch), reporter_val) as vid, videoWriter(writer_path) as writer:
+            for iFrame, (frame, frame_kwarg_dict) in enumerate(zip(vid, kwarg_dict_list)):
+                writer.append(analysis_func(frame, **frame_kwarg_dict))
+    elif output_ext == '.npz':
+        output = {}
+        with videoReader(vid_path, np.array(frame_batch), reporter_val) as vid:
+            for iFrame, (frame, frame_kwarg_dict) in enumerate(zip(vid, kwarg_dict_list)):
+                results = analysis_func(frame, **frame_kwarg_dict)
+                if iFrame == 0:
+                    for key in results.keys():
+                        output[key] = np.zeros((len(frame_batch), *results[key].shape))
+                for key, val in results.items():
+                    output[key][iFrame,...] = val
+        np.savez(writer_path, **output)
+    return
 
-#TODO: make function that just returns scalars per frame. Can be same func or make a separate one?
-
-def video_chef(func, path_to_vid, func_global_kwargs=None, func_frame_kwargs=None, max_workers=3, frame_batch_size=500, vid_read_reporter=False, tmp_dir=None, proc_suffix='_PROC'):
-    """Process a video in embarassingly parallel batches, writing out a processed video or scalars. Thin wrapper around tqdm.contrib.concurrent.process_map.
+def video_chef(
+    func, 
+    path_to_vid, 
+    func_global_kwargs=None, 
+    func_frame_kwargs=None,
+    output_type='video',
+    max_workers=3, 
+    frame_batch_size=500, 
+    vid_read_reporter=False, 
+    tmp_dir=None, 
+    proc_suffix='_PROC'
+    ):
+    """Process a video in embarassingly parallel batches, writing out a processed video (an avi) or arrays of scalars (an npz). 
+    Thin wrapper around tqdm.contrib.concurrent.process_map.
 
     Arguments:
-        func {python function} -- the processing function. Must accept one video frame as a sole positional arg.
+        func {python function} -- the processing function. Must accept one video frame as a sole positional arg. Must return either a frame (if output_type is 'video') or a dictionary of scalars (if output_type is 'arr') (default: {None}
         path_to_vid {str} -- path to the video to be processed.
 
     Keyword Arguments:
         func_global_kwargs {dict} -- kwargs to pass into the analysis function once, at initialization
         func_frame_kwargs {dict} -- kwargs to pass for each frame (eg {'key1': vals, 'key2': vals}, where vals is an array of same length as the video)
+        output_type {str} -- 'video' or 'arrays' (default: {'video'})
         max_workers {int} -- max_workers for process_map (default: {3})
         frame_batch_size {int} -- n frames processed per worker-batch (default: {500})
         vid_read_reporter {bool} -- if True, workers will report which video frames they're reading (mostly for debugging) (default: {False})
@@ -72,8 +98,11 @@ def video_chef(func, path_to_vid, func_global_kwargs=None, func_frame_kwargs=Non
     ### Prep iters for process_map ###
     # NB, all are length of batch_seq
 
-    # Get video writers to use
-    parallel_writer_names = [join(tmp_dir, f'proc_{i}.avi') for i in range(len(batch_seq))]
+    # Get video writers to use  #TODO: get extension from passed in vid, so can use mp4, eg
+    if output_type == 'video':
+        parallel_writer_names = [join(tmp_dir, f'proc_{i}.avi') for i in range(len(batch_seq))]
+    elif output_type == 'arrays':
+        parallel_writer_names = [join(tmp_dir, f'proc_{i}.npz') for i in range(len(batch_seq))]
     
     # Set up debugging if desired
     if vid_read_reporter:
@@ -115,17 +144,34 @@ def video_chef(func, path_to_vid, func_global_kwargs=None, func_frame_kwargs=Non
                 max_workers=max_workers,
                 total=len(batch_seq))
 
-    print('Stitching parallel videos')
-    stitched_vid_name = join(tmp_dir, vid_name + proc_suffix + vid_ext)
-    with videoWriter(stitched_vid_name) as stitched_vid:
-        for i, vid_name in enumerate(parallel_writer_names):
-            print(f'Stitching video {i}')
-            with videoReader(vid_name) as cheffed_vid:
-                for frame in cheffed_vid:
-                    stitched_vid.append(frame)
+    if output_type == 'video':
+        print('Stitching parallel videos')
+        stitched_vid_name = join(tmp_dir, vid_name + proc_suffix + vid_ext)
+        with videoWriter(stitched_vid_name) as stitched_vid:
+            for i, vid_name in enumerate(parallel_writer_names):
+                print(f'Stitching video {i}')
+                with videoReader(vid_name) as cheffed_vid:
+                    for frame in cheffed_vid:
+                        stitched_vid.append(frame)
 
-    # Check nframes matches. If not, something is wrong
-    if not (count_frames(path_to_vid) == count_frames(stitched_vid_name)):
-        raise RuntimeError('Frame numbers in processed videos do not match. Something went wrong!')
+        # Check nframes matches. If not, something is wrong
+        if not (nframes == count_frames(stitched_vid_name)):
+            raise RuntimeError('Frame numbers in processed videos do not match. Something went wrong!')
+        return stitched_vid_name
 
-    return stitched_vid_name
+    elif output_type == 'arrays':
+        print('Stitching arrays')
+        stitched_npz_name = join(tmp_dir, vid_name + proc_suffix + '.npz')
+        results = {}
+        counters = {}
+        cheffed_npzs = [np.load(arr_name) for arr_name in parallel_writer_names]
+        for iNpz, npz in enumerate(cheffed_npzs):
+            for k in npz.keys():
+                if k not in results:  # alternatively, could pre-alloc dict on first pass?
+                    results[k] = np.zeros((nframes, *npz[k].shape[1:]))
+                    counters[k] = 0
+                len_ = len(npz[k])
+                results[k][(counters[k]):(counters[k]+len_),...] = npz[k]
+                counters[k] += len_
+        np.savez(stitched_npz_name, **results)
+        return stitched_npz_name
