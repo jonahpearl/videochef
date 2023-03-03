@@ -6,7 +6,7 @@ import os
 
 import pdb
 
-class videoWriter():
+class VideoWriter():
     def __init__(self, file_name, **ffmpeg_options):
         self.pipe = None
         self.file_name = file_name
@@ -23,7 +23,7 @@ class videoWriter():
         if len(frames.shape)==2: frames = frames[None]
         self.pipe = write_frames(self.file_name, frames, pipe=self.pipe, **self.ffmpeg_options)
 
-class videoReader():
+class VideoReader():
     def __init__(self, file_name, frame_ixs=None, reporter_val=None, mp4_to_gray=False):
         self.file_name = file_name
         self.file_ext = os.path.splitext(self.file_name)[1]
