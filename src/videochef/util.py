@@ -52,6 +52,20 @@ def dummy_process(frame):
     frame = ((frame - avg)/std + 255/2).astype('uint8')
     return frame
 
+def dummy_process_arrays(frame):
+    # Get the min, max, and mean of each frame
+    # Also get the 4 middle pixels, just to test the ability to store >1-D arrays
+    avg = np.mean(frame)
+    _min = np.min(frame)
+    _max = np.max(frame)
+    midx = frame.shape[0]//2
+    midy = frame.shape[1]//2
+    four_middle_px = frame[midx-1:midx+1, midy-1:midy+1]
+    
+    # return a dictionary with the results in it
+    out = {'avg': avg, 'min': _min, 'max': _max, 'four_middle_px': four_middle_px}
+    
+    return out 
 
 def count_frames(file_name):
     with av.open(file_name, 'r') as reader:

@@ -50,3 +50,38 @@ def test_count_frames_mp4(datafiles):
 
     nfr = vc.util.count_frames(test_movie)
     assert nfr == 10000
+
+
+@pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
+def test_precise_seek_avi(datafiles):
+
+    # Set up
+    path = str(datafiles)
+    assert len(listdir(path)) == 1
+    assert isfile(join(path, 'labeled_frames.avi'))
+    test_movie = join(path, 'labeled_frames.avi')
+
+    frame_to_check = 300
+    with videoReader(test_movie, np.array([frame_to_check])) as vid:
+        for frame in vid:
+            assert np.sum(frame[0, :]) == frame_to_check
+
+
+@pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames_mark_2221.mp4'))
+def test_precise_seek_mp4_h264(datafiles):
+
+    # Set up
+    path = str(datafiles)
+    print(datafiles)
+    assert len(listdir(path)) == 1
+    assert isfile(join(path, 'labeled_frames_mark_2221.mp4'))
+    test_movie = join(path, 'labeled_frames_mark_2221.mp4')
+
+    frame_to_check = 2221
+    with videoReader(test_movie, np.array([frame_to_check]), mp4_to_gray=True) as vid:
+        for frame in vid:
+            marker_pix_val = 255  
+            buffer_val = 15  # h264 compression means not all px at exactly 255, give it some buffer space.
+            n_marked_rows = 10
+            n_cols = 400
+            assert np.sum(frame[0:10, :]) > ((marker_pix_val - buffer_val) * n_marked_rows * n_cols)  
