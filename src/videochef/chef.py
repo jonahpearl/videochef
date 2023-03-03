@@ -58,6 +58,7 @@ def video_chef(
     output_type='video',
     max_workers=3, 
     frame_batch_size=500, 
+    every_nth_frame=1,
     vid_read_reporter=False, 
     tmp_dir=None, 
     proc_suffix='_PROC'
@@ -75,6 +76,7 @@ def video_chef(
         output_type {str} -- 'video' or 'arrays' (default: {'video'})
         max_workers {int} -- max_workers for process_map (default: {3})
         frame_batch_size {int} -- n frames processed per worker-batch (default: {500})
+        every_nth_frame {int} -- process every nth frame (default: {1})
         vid_read_reporter {bool} -- if True, workers will report which video frames they're reading (mostly for debugging) (default: {False})
         tmp_dir {[type]} -- where to store the temporary (unstitched) processed videos (default: {path_to_vid/tmp})
         proc_suffix {str} -- suffix for the temporary (unstitched) processed videos (default: {'_PROC'})
@@ -82,8 +84,10 @@ def video_chef(
     Returns:
         [str] -- path to the stitched and processed video
     """
+
     nframes = count_frames(path_to_vid)
-    batch_seq = make_batch_sequence(nframes, frame_batch_size, 0)
+    batch_seq = make_batch_sequence(nframes, frame_batch_size, 0, offset=0, step=every_nth_frame)
+    n_expected_frames = sum([len(list(r)) for r in batch_seq])
     vid_name, vid_ext = splitext(basename(path_to_vid))
     vid_dir = dirname(path_to_vid)
 
@@ -154,8 +158,8 @@ def video_chef(
                     for frame in cheffed_vid:
                         stitched_vid.append(frame)
 
-        # Check nframes matches. If not, something is wrong
-        if not (nframes == count_frames(stitched_vid_name)):
+        # Check n_expected_frames matches. If not, something is wrong
+        if not (n_expected_frames == count_frames(stitched_vid_name)):
             raise RuntimeError('Frame numbers in processed videos do not match. Something went wrong!')
         return stitched_vid_name
 
@@ -168,7 +172,7 @@ def video_chef(
         for iNpz, npz in enumerate(cheffed_npzs):
             for k in npz.keys():
                 if k not in results:  # alternatively, could pre-alloc dict on first pass?
-                    results[k] = np.zeros((nframes, *npz[k].shape[1:]))
+                    results[k] = np.zeros((n_expected_frames, *npz[k].shape[1:]))
                     counters[k] = 0
                 len_ = len(npz[k])
                 results[k][(counters[k]):(counters[k]+len_),...] = npz[k]

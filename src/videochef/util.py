@@ -1,7 +1,7 @@
 import numpy as np
 import av
 
-def make_batch_sequence(nframes, chunk_size, overlap, offset=0):
+def make_batch_sequence(nframes, chunk_size, overlap, offset=0, step=1):
     '''
     Generates batches used to chunk videos prior to extraction.
     Parameters
@@ -18,7 +18,7 @@ def make_batch_sequence(nframes, chunk_size, overlap, offset=0):
     if overlap >= chunk_size:
         raise ValueError('Overlap must be less than chunk size')
     
-    seq = range(offset, nframes)
+    seq = range(offset, nframes, step)
     out = []
     for i in range(0, len(seq) - overlap, chunk_size - overlap):
         out.append(seq[i:i + chunk_size])
