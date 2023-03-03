@@ -9,7 +9,13 @@ from videochef.util import make_batch_sequence, count_frames, unwrap_dictionary
 
 import pdb
 
-def parallel_proc_frame(vid_path, video_reader_kwargs, writer_path, frame_by_frame_kwarg_dicts, analysis_func=None):
+def parallel_proc_frame(
+    vid_path, 
+    video_reader_kwargs, 
+    writer_path, 
+    frame_by_frame_kwarg_dicts, 
+    analysis_func=None,
+    overwrite_tmp=True):
     """Helper function to pipe + process the video frames from one vid to another.
         
         NB: all args must be positional except analysis func for process_map to work correctly. 
@@ -29,6 +35,9 @@ def parallel_proc_frame(vid_path, video_reader_kwargs, writer_path, frame_by_fra
     if analysis_func is None:
         raise ValueError('Please provide an analysis function!')
     
+    if not overwrite_tmp and exists(writer_path):
+        return
+        
     output_ext = splitext(writer_path)[1]
     batch_len = len(video_reader_kwargs['frame_ixs'])
     movie_types = ['.avi', '.mp4']
@@ -62,6 +71,7 @@ def video_chef(
     vid_read_reporter=False,
     video_reader_kwargs=None, 
     tmp_dir=None, 
+    overwrite_tmp=True,
     proc_suffix='_PROC'
     ):
     """Process a video in embarassingly parallel batches, writing out a processed video (an avi) or arrays of scalars (an npz). 
@@ -81,6 +91,7 @@ def video_chef(
         truncate_to_n_batches {int} -- if not None, only process this many batches (for debugging) {default: None}
         vid_read_reporter {bool} -- if True, workers will report which video frames they're reading (mostly for debugging) (default: {False})
         tmp_dir {[type]} -- where to store the temporary (unstitched) processed videos (default: {path_to_vid/tmp})
+        overwrite_tmp {bool} -- if True, remove anything in the tmp dir before starting; if False, try to use anything pre-existing (default: {True})
         proc_suffix {str} -- suffix for the outputs (default: {'_PROC'})
 
     Returns:
@@ -101,7 +112,7 @@ def video_chef(
      
     if not exists(tmp_dir):
         mkdir(tmp_dir)
-    else:
+    elif overwrite_tmp:
         for file in listdir(tmp_dir):
             remove(join(tmp_dir, file))
 
@@ -145,7 +156,10 @@ def video_chef(
     analysis_func_partial = partial(func, **func_global_kwargs)
 
     # Get parallel proc function
-    proc_func = partial(parallel_proc_frame, analysis_func=analysis_func_partial)
+    proc_func = partial(
+        parallel_proc_frame, 
+        analysis_func=analysis_func_partial,
+        overwrite_tmp=overwrite_tmp)
 
     # Call to process_map is (func, iter1, iter2, ..., iterN, **kwargs) where iter1 - iterN are iterables that are passed as positional args to func.
     # Importantly, chunksize=1 means workers get only one item from each iterable at once; nb that each single "chunk" will be frame_batch_size frames!
