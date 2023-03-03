@@ -1,5 +1,5 @@
 from os.path import join, dirname, exists, basename, splitext
-from os import mkdir
+from os import mkdir, listdir, remove
 import numpy as np
 from tqdm.contrib.concurrent import process_map
 from itertools import repeat
@@ -58,6 +58,7 @@ def video_chef(
     max_workers=3, 
     frame_batch_size=500, 
     every_nth_frame=1,
+    truncate_to_n_batches=None,
     vid_read_reporter=False,
     video_reader_kwargs=None, 
     tmp_dir=None, 
@@ -77,9 +78,10 @@ def video_chef(
         max_workers {int} -- max_workers for process_map (default: {3})
         frame_batch_size {int} -- n frames processed per worker-batch (default: {500})
         every_nth_frame {int} -- process every nth frame (default: {1})
+        truncate_to_n_batches {int} -- if not None, only process this many batches (for debugging) {default: None}
         vid_read_reporter {bool} -- if True, workers will report which video frames they're reading (mostly for debugging) (default: {False})
         tmp_dir {[type]} -- where to store the temporary (unstitched) processed videos (default: {path_to_vid/tmp})
-        proc_suffix {str} -- suffix for the temporary (unstitched) processed videos (default: {'_PROC'})
+        proc_suffix {str} -- suffix for the outputs (default: {'_PROC'})
 
     Returns:
         [str] -- path to the stitched and processed video
@@ -87,15 +89,21 @@ def video_chef(
 
     nframes = count_frames(path_to_vid)
     batch_seq = make_batch_sequence(nframes, frame_batch_size, 0, offset=0, step=every_nth_frame)
+    if truncate_to_n_batches is not None:
+        batch_seq = batch_seq[:truncate_to_n_batches]
     n_expected_frames = sum([len(list(r)) for r in batch_seq])
     vid_name, vid_ext = splitext(basename(path_to_vid))
     vid_dir = dirname(path_to_vid)
 
+
     if tmp_dir is None:
-        tmp_dir = join(vid_dir, 'tmp')
+       tmp_dir = join(vid_dir, 'tmp')
+     
+    if not exists(tmp_dir):
         mkdir(tmp_dir)
     else:
-        assert exists(tmp_dir)
+        for file in listdir(tmp_dir):
+            remove(join(tmp_dir, file))
 
     if video_reader_kwargs is None:
         video_reader_kwargs = {}
@@ -163,11 +171,16 @@ def video_chef(
         # Check n_expected_frames matches. If not, something is wrong
         if not (n_expected_frames == count_frames(stitched_vid_name)):
             raise RuntimeError('Frame numbers in processed videos do not match. Something went wrong!')
+
+        # Remove the tmp vids
+        for file in listdir(tmp_dir):
+            remove(join(tmp_dir, file))
+
         return stitched_vid_name
 
     elif output_type == 'arrays':
         print('Stitching arrays')
-        stitched_npz_name = join(tmp_dir, vid_name + proc_suffix + '.npz')
+        stitched_npz_name = join(vid_dir, vid_name + proc_suffix + '.npz')
         results = {}
         counters = {}
         cheffed_npzs = [np.load(arr_name) for arr_name in parallel_writer_names]
@@ -180,4 +193,9 @@ def video_chef(
                 results[k][(counters[k]):(counters[k]+len_),...] = npz[k]
                 counters[k] += len_
         np.savez(stitched_npz_name, **results)
+
+        # Remove the tmp arrays
+        for file in listdir(tmp_dir):
+            remove(join(tmp_dir, file))
+
         return stitched_npz_name
