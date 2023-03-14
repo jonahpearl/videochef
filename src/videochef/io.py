@@ -20,7 +20,27 @@ class VideoWriter():
             self.pipe.stdin.close()
         
     def append(self, frames):
-        if len(frames.shape)==2: frames = frames[None]
+        """Convert frames into an array (nframes) x (w) x (h) x color.
+        Frames should have color as final dimension, if at all.
+
+        Arguments:
+            frames {[type]} -- [description]
+        """
+
+        # Infer whether or not the frames have color
+        is_color = (len(frames.shape) >= 3) and (frames.shape[-1] == 3)
+
+        # Re-shape the array accordingly
+        if is_color and (len(frames.shape) == 3):
+            # If color but only one frame, add a singleton dim in front
+            frames = frames[None]
+        elif is_color and (len(frames.shape) == 4):
+            pass
+        elif len(frames.shape) == 2:
+            # If not color and only one frame, add a singleton dimension in front
+            frames = frames[None]
+
+        if type(frames) ==  np.ndarray and len(frames.shape)==2: frames = frames[None]
         self.pipe = write_frames(self.file_name, frames, pipe=self.pipe, **self.ffmpeg_options)
 
 class VideoReader():
@@ -142,7 +162,7 @@ def write_frames(filename, frames,
 
     if not pipe: pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     dtype = np.uint16 if pixel_format.startswith('gray16') else np.uint8
-    for i in range(frames.shape[0]): pipe.stdin.write(frames[i,:,:].astype(dtype).tobytes())
+    for i in range(frames.shape[0]): pipe.stdin.write(frames[i,...].astype(dtype).tobytes())
     return pipe
 
 
