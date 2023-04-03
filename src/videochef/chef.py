@@ -195,18 +195,27 @@ def video_chef(
     elif output_type == 'arrays':
         print('Stitching arrays')
         stitched_npz_name = join(vid_dir, vid_name + proc_suffix + '.npz')
+
+        # Dictionary to hold stitched np arrays
         results = {}
         counters = {}
         cheffed_npzs = [np.load(arr_name) for arr_name in parallel_writer_names]
         for iNpz, npz in enumerate(cheffed_npzs):
+
+            # each npz contains some set of output var, each of which is a key in the npz.
+            # For each output var, append it to its stitched array.
             for k in npz.keys():
-                if k not in results:  # alternatively, could pre-alloc dict on first pass?
+                if k not in results: 
                     results[k] = np.zeros((n_expected_frames, *npz[k].shape[1:]))
                     counters[k] = 0
                 len_ = len(npz[k])
                 results[k][(counters[k]):(counters[k]+len_),...] = npz[k]
                 counters[k] += len_
         np.savez(stitched_npz_name, **results)
+
+        # Close the npz files
+        for npz in cheffed_npzs:
+            npz.close()
 
         # Remove the tmp arrays
         for file in listdir(tmp_dir):
