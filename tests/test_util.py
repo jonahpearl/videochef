@@ -1,5 +1,6 @@
 import numpy as np
 import videochef as vc
+from videochef.io import VideoReader, VideoWriter
 from os.path import join, dirname, realpath, isfile
 from os import listdir, makedirs, rmdir, remove
 import pytest
@@ -62,7 +63,7 @@ def test_precise_seek_avi(datafiles):
     test_movie = join(path, 'labeled_frames.avi')
 
     frame_to_check = 300
-    with videoReader(test_movie, np.array([frame_to_check])) as vid:
+    with VideoReader(test_movie, np.array([frame_to_check])) as vid:
         for frame in vid:
             assert np.sum(frame[0, :]) == frame_to_check
 
@@ -78,7 +79,7 @@ def test_precise_seek_mp4_h264(datafiles):
     test_movie = join(path, 'labeled_frames_mark_2221.mp4')
 
     frame_to_check = 2221
-    with videoReader(test_movie, np.array([frame_to_check]), mp4_to_gray=True) as vid:
+    with VideoReader(test_movie, np.array([frame_to_check]), mp4_to_gray=True) as vid:
         for frame in vid:
             marker_pix_val = 255  
             buffer_val = 15  # h264 compression means not all px at exactly 255, give it some buffer space.

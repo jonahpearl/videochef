@@ -2,7 +2,7 @@ from os.path import join, dirname, realpath, isfile, exists
 from os import listdir, makedirs, rmdir, remove
 import os
 from videochef.io import VideoReader, VideoWriter
-from videochef.util import dummy_process, dummy_process_arrays, count_frames
+from videochef.util import dummy_process, dummy_process_arrays, dummy_process_vid_and_arrays, count_frames
 from videochef.chef import video_chef
 import numpy as np
 import pytest
@@ -32,10 +32,13 @@ def test_compare_serial_and_cheffed_labeled_avi(datafiles):
         with VideoReader(test_movie) as raw_vid, \
             VideoWriter(serial_vid_name) as serial_vid:
             for frame in raw_vid:
-                serial_vid.append(dummy_process(frame))
+                out = dummy_process(frame)  # returns a tuple of (frame,)
+                serial_vid.append(out[0])
 
         # Then in parallel
-        stitched_vid_name = video_chef(dummy_process, test_movie, tmp_dir=tmp_dir)
+        stitched_vid_name = video_chef(dummy_process, test_movie, tmp_dir=tmp_dir, remove_chunks=False, output_types=['video'], overwrite_tmp=False)  # must pass overwrite_tmp=false here, or it will overwrite the serial version!
+        print(stitched_vid_name)
+        stitched_vid_name = stitched_vid_name[0] # video_chef returns a list of output paths, but we only have one output
 
         # Assert equal num frames
         assert count_frames(serial_vid_name) == count_frames(stitched_vid_name)
@@ -53,11 +56,12 @@ def test_compare_serial_and_cheffed_labeled_avi(datafiles):
         assert non_equal_counter == 0
 
     finally:
-        # Clean up
+        # pass
+        # # Clean up
         for file in listdir(tmp_dir):
             if exists(join(tmp_dir, file)):
                 remove(join(tmp_dir, file))
-        rmdir(tmp_dir)
+        os.system(f'rm -rf ./tmp')  # for some reason, os.rmdir fails here
 
 @pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
 def test_array_func(datafiles):
@@ -73,8 +77,9 @@ def test_array_func(datafiles):
 
         # Do the processing with a func that returns a dict of values
         # will return: {'avg': avg, 'min': _min, 'max': _max, 'four_middle_px': four_middle_px}
-        stitched_npz_name = video_chef(dummy_process_arrays, test_movie, tmp_dir=tmp_dir, output_type='arrays')
+        stitched_npz_name = video_chef(dummy_process_arrays, test_movie, tmp_dir=tmp_dir, output_types=['arrays'], remove_chunks=False)
 
+        stitched_npz_name = stitched_npz_name[0]  # video_chef returns a list of names, but we only have one here
         npz = np.load(stitched_npz_name)
         nframes = count_frames(test_movie)
         assert nframes == len(npz['avg'])
@@ -85,5 +90,36 @@ def test_array_func(datafiles):
         for file in listdir(tmp_dir):
             if exists(join(tmp_dir, file)):
                 remove(join(tmp_dir, file))
-        os.system(f'rm -rf tmp')  # for some reason, os.rmdir fails here
-        pass
+        os.system(f'rm -rf ./tmp2')  # for some reason, os.rmdir fails here
+
+@pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
+def test_vid_and_array(datafiles):
+    
+    try:
+        # Set up
+        path = str(datafiles)
+        assert len(listdir(path)) == 1
+        assert isfile(join(path, 'labeled_frames.avi'))
+        test_movie = join(path, 'labeled_frames.avi')
+        tmp_dir = join(dirname(realpath(__file__)), 'tmp3')  # TODO: update this with some pytest magic so can have multipel tests not interfere with each other
+        makedirs(tmp_dir)
+
+        # Do the processing with a func that returns a dict of values
+        # will return: {'avg': avg, 'min': _min, 'max': _max, 'four_middle_px': four_middle_px}
+        stitched_names = video_chef(dummy_process_vid_and_arrays, test_movie, tmp_dir=tmp_dir, output_types=['video', 'arrays'], remove_chunks=False, overwrite_tmp=False)
+
+        stitched_vid_name, stitched_npz_name = tuple(stitched_names)  # video_chef returns a list of names
+
+        npz = np.load(stitched_npz_name)
+        nframes = count_frames(test_movie)
+        assert nframes == len(npz['avg'])
+        assert npz['four_middle_px'].shape == (nframes, 2, 2)
+    
+        assert count_frames(test_movie) == count_frames(stitched_vid_name)
+
+    finally:
+        # Clean up
+        for file in listdir(tmp_dir):
+            if exists(join(tmp_dir, file)):
+                remove(join(tmp_dir, file))
+        os.system(f'rm -rf ./tmp2')  # for some reason, os.rmdir fails here
