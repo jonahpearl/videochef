@@ -7,6 +7,10 @@ import os
 import pdb
 
 class VideoWriter():
+    """A simple, ffmpeg-based video writer. Will try to infer grayscale vs. color (use RGB!), and act accordingly.
+    Inputs should be (nframes) x (w) x (h) x (RGB).
+
+    """
     def __init__(self, file_name, **ffmpeg_options):
         self.pipe = None
         self.file_name = file_name
@@ -28,6 +32,7 @@ class VideoWriter():
         """
 
         # Infer whether or not the frames have color
+        # Will fail if the video is 3 px tall...seems unlikely.
         is_color = (len(frames.shape) >= 3) and (frames.shape[-1] == 3)
 
         # Re-shape the array accordingly
@@ -40,8 +45,29 @@ class VideoWriter():
             # If not color and only one frame, add a singleton dimension in front
             frames = frames[None]
 
-        if type(frames) ==  np.ndarray and len(frames.shape)==2: frames = frames[None]
-        self.pipe = write_frames(self.file_name, frames, pipe=self.pipe, **self.ffmpeg_options)
+        # Set default options if video is in color.
+        if is_color:
+            if 'pixel_format' in self.ffmpeg_options:
+                pixel_format = self.ffmpeg_options.pop('pixel_format')
+            else:
+                pixel_format = 'rgb24'
+            
+            if 'codec' in self.ffmpeg_options:
+                codec = self.ffmpeg_options.pop('codec')
+            else:
+                codec = 'h264'
+
+        if type(frames) ==  np.ndarray and len(frames.shape)==2:
+             frames = frames[None]
+
+        self.pipe = write_frames(
+            self.file_name, 
+            frames, 
+            pipe=self.pipe, 
+            pixel_format=pixel_format,
+            codec=codec,
+            **self.ffmpeg_options
+        )
 
 class VideoReader():
     def __init__(self, file_name, frame_ixs=None, reporter_val=None, mp4_to_gray=False):
