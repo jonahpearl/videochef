@@ -5,7 +5,8 @@ from os.path import join, dirname, realpath, isfile
 from os import listdir, makedirs, rmdir, remove
 import pytest
 
-FIXTURE_DIR = join(dirname(realpath(__file__)), '../test_data')
+
+TEST_DATA_DIR = join(dirname(realpath(__file__)), '../test_data')
 
 
 def test_make_batch_sequence():
@@ -27,12 +28,11 @@ def test_make_batch_sequence():
     assert seq[-2] == range(85,95)
     assert seq[-1] == range(90,100)
 
-@pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
-def test_count_frames_avi(datafiles):
+
+def test_count_frames_avi():
 
     # Set up
-    path = str(datafiles)
-    assert len(listdir(path)) == 1
+    path = str(TEST_DATA_DIR)
     assert isfile(join(path, 'labeled_frames.avi'))
     test_movie = join(path, 'labeled_frames.avi')
 
@@ -40,12 +40,10 @@ def test_count_frames_avi(datafiles):
     assert nfr == 7148
 
 
-@pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames_mark_2221.mp4'))
-def test_count_frames_mp4(datafiles):
+def test_count_frames_mp4():
 
     # Set up
-    path = str(datafiles)
-    assert len(listdir(path)) == 1
+    path = str(TEST_DATA_DIR)
     assert isfile(join(path, 'labeled_frames_mark_2221.mp4'))
     test_movie = join(path, 'labeled_frames_mark_2221.mp4')
 
@@ -53,12 +51,10 @@ def test_count_frames_mp4(datafiles):
     assert nfr == 10000
 
 
-@pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames.avi'))
-def test_precise_seek_avi(datafiles):
+def test_precise_seek_avi():
 
     # Set up
-    path = str(datafiles)
-    assert len(listdir(path)) == 1
+    path = str(TEST_DATA_DIR)
     assert isfile(join(path, 'labeled_frames.avi'))
     test_movie = join(path, 'labeled_frames.avi')
 
@@ -68,16 +64,30 @@ def test_precise_seek_avi(datafiles):
             assert np.sum(frame[0, :]) == frame_to_check
 
 
-@pytest.mark.datafiles(join(FIXTURE_DIR, 'labeled_frames_mark_2221.mp4'))
-def test_precise_seek_mp4_h264(datafiles):
+def test_precise_seek_mp4_h264():
 
     # Set up
-    path = str(datafiles)
-    print(datafiles)
-    assert len(listdir(path)) == 1
+    path = str(TEST_DATA_DIR)
     assert isfile(join(path, 'labeled_frames_mark_2221.mp4'))
     test_movie = join(path, 'labeled_frames_mark_2221.mp4')
 
+    frame_to_check = 2221
+    with VideoReader(test_movie, np.array([frame_to_check]), mp4_to_gray=True) as vid:
+        for frame in vid:
+            marker_pix_val = 255  
+            buffer_val = 15  # h264 compression means not all px at exactly 255, give it some buffer space.
+            n_marked_rows = 10
+            n_cols = 400
+            assert np.sum(frame[0:10, :]) > ((marker_pix_val - buffer_val) * n_marked_rows * n_cols)  
+
+
+def test_precise_seek_mp4_h265():
+
+    # Set up
+    path = str(TEST_DATA_DIR)
+    test_movie = join(path, 'labeled_frames_mark_2221_H265.mp4')
+    assert isfile(test_movie)
+    
     frame_to_check = 2221
     with VideoReader(test_movie, np.array([frame_to_check]), mp4_to_gray=True) as vid:
         for frame in vid:
