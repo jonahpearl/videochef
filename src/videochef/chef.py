@@ -6,6 +6,8 @@ from itertools import repeat
 from functools import partial
 from videochef.io import VideoReader, VideoWriter
 from videochef.util import make_batch_sequence, count_frames, unwrap_dictionary
+from time import sleep
+from warnings import warn
 
 from contextlib import ExitStack
 
@@ -134,6 +136,7 @@ def video_chef(
     Thin wrapper around tqdm.contrib.concurrent.process_map.
 
     Arguments:
+        func {python function} -- the processing function. 
             Must accept one video frame as the sole positional arg. 
             Must return a tuple. Tuple can contain either:
                 -- a frame (if output_type is 'video') 
@@ -212,7 +215,7 @@ def video_chef(
     kwarg_dict_list = np.array(unwrap_dictionary(func_frame_kwargs), dtype='object')
     if len(kwarg_dict_list) == 0:
         partial_fr_by_fr_kwarg_list = [[{} for _ in batch] for batch in batch_seq]    
-    elif len(kwarg_dict_list) == n_expected_frames:
+    elif len(kwarg_dict_list) == nframes:
         partial_fr_by_fr_kwarg_list = [kwarg_dict_list[batch] for batch in batch_seq]
     else:
         raise ValueError(f'Expected empty func_frame_kwargs or lists of length n_expected_frames ({n_expected_frames}), but got lists of length {len(kwarg_dict_list)}. Did you pass every_nth_frame correctly?')
@@ -250,7 +253,7 @@ def video_chef(
 
         if output_type == 'video':
             print('Stitching parallel videos')
-            stitched_vid_name = join(tmp_dir, vid_name + proc_suffix + vid_ext)
+            stitched_vid_name = join(vid_dir, vid_name + proc_suffix + vid_ext)
             print(stitched_vid_name)
             with VideoWriter(stitched_vid_name) as stitched_vid:
                 for i, vid_name in enumerate([tup[writers_vid_idx] for tup in parallel_writer_fullfiles]):
@@ -260,13 +263,11 @@ def video_chef(
                             stitched_vid.append(frame)
 
             # Check n_expected_frames matches. If not, something is wrong
-            if not (n_expected_frames == count_frames(stitched_vid_name)):
-                raise RuntimeError('Frame numbers in processed videos do not match. Something went wrong!')
-
-            # Remove the tmp vids?
-            if remove_chunks:
-                for file in listdir(tmp_dir):
-                    remove(join(tmp_dir, file))
+            print(stitched_vid_name)
+            n_stitched_frames = count_frames(stitched_vid_name)
+            if not (n_expected_frames == n_stitched_frames):
+                raise RuntimeError(f'Frame number in processed video ({n_stitched_frames}) ' +  
+                                    f'doesnt match expected ({n_expected_frames}). Something went wrong!')
 
             out_names.append(stitched_vid_name)
 
@@ -297,11 +298,11 @@ def video_chef(
             for npz in cheffed_npzs:
                 npz.close()
 
-            # Remove the tmp arrays?
-            if remove_chunks:
-                for file in listdir(tmp_dir):
-                    remove(join(tmp_dir, file))
-
             out_names.append(stitched_npz_name)
     
+    # Remove the tmp data
+    if remove_chunks:
+        for file in listdir(tmp_dir):
+            remove(join(tmp_dir, file))
+
     return out_names
