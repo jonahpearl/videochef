@@ -22,6 +22,7 @@ class VideoWriter():
     def __exit__(self, type, value, traceback):
         if self.pipe is not None:
             self.pipe.stdin.close()
+            self.pipe.wait()  # wait for ffmpeg to finish so the video is ready to go on the next line of code; otherwise run into weird conditions where video isn't saved to disk yet
         
     def append(self, frames):
         """Convert frames into an array (nframes) x (w) x (h) x color.
