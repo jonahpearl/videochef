@@ -98,9 +98,12 @@ def parallel_proc_frame(
                 npz_data = out[npz_idx]
                 if iFrame == 0:
                     for key in npz_data.keys():
-                        output[key] = np.zeros((batch_len, *npz_data[key].shape))
-                for key, val in npz_data.items():
-                    output[key][iFrame,...] = val
+                        try:
+                            output[key] = np.zeros((batch_len, *npz_data[key].shape))
+                        except MemoryError:
+                            warn(f'Unable to allocate memory for key {key}, skipping stitching it...')
+                for key in output.keys():
+                    output[key][iFrame,...] = npz_data[key]
 
         # After full vid, save npz data
         if npz_idx is not None:
