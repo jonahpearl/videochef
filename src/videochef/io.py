@@ -148,8 +148,11 @@ class VideoReader():
     def convert_frame_to_np(self, frame):
         if self.file_ext == '.avi' and self.codec == 'ffv1' and 'gray' in self.pix_fmt:
             return frame.to_ndarray()
-        elif (self.file_ext == '.mp4' and self.codec == 'h264' and (self.pix_fmt == 'yuvj420p' or self.pix_fmt == 'yuv420p')) or \
-             (self.file_ext == '.mp4' and self.codec == 'mpeg4' and self.pix_fmt == 'yuv420p')  :
+        elif self.file_ext == '.avi' and self.codec == 'h264' and 'yuv' in self.pix_fmt:
+            return np.array(frame.to_image())
+        elif (self.file_ext == '.mp4' and self.codec == 'h264' and (self.pix_fmt == 'yuvj420p' or self.pix_fmt == 'yuv420p' or self.pix_fmt == 'yuv444p')) or \
+             (self.file_ext == '.mp4' and (self.codec == 'h265' or self.codec == 'hevc') and (self.pix_fmt == 'yuvj420p' or self.pix_fmt == 'yuv420p')) or \
+             (self.file_ext == '.mp4' and self.codec == 'mpeg4' and self.pix_fmt == 'yuv420p'):
             if self.mp4_to_gray:
                 return np.array(frame.to_image())[:,:,0]
             else:
