@@ -46,17 +46,13 @@ class VideoWriter():
             # If not color and only one frame, add a singleton dimension in front
             frames = frames[None]
 
-        # Set default options if video is in color.
+        # Set default options if video is in color or gray.
         if is_color:
-            if 'pixel_format' in self.ffmpeg_options:
-                pixel_format = self.ffmpeg_options.pop('pixel_format')
-            else:
-                pixel_format = 'rgb24'
-            
-            if 'codec' in self.ffmpeg_options:
-                codec = self.ffmpeg_options.pop('codec')
-            else:
-                codec = 'h264'
+            pixel_format = self.ffmpeg_options.pop('pixel_format', 'rgb24')
+            codec = self.ffmpeg_options.pop('codec', 'h264')
+        else:
+            pixel_format = self.ffmpeg_options.pop('pixel_format', 'gray8')
+            codec = self.ffmpeg_options.pop('codec', 'ffv1')
 
         if type(frames) ==  np.ndarray and len(frames.shape)==2:
              frames = frames[None]
