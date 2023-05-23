@@ -86,7 +86,7 @@ def parallel_proc_frame(
             # Do the analysis
             out = analysis_func(frame, **frame_kwarg_dict)
             if type(out) is not tuple:
-                raise ValueError('Analysis function must return a tuple of outputs!')
+                raise ValueError(f'Analysis function must return a tuple of outputs but returned type {type(out)} instead!')
             
             # Deal with movie data
             if vc_writer is not None:
@@ -96,6 +96,8 @@ def parallel_proc_frame(
             # Deal with npz data
             if npz_idx is not None:
                 npz_data = out[npz_idx]
+                if type(npz_data) is not dict:
+                    raise ValueError(f"npz portion of analysis function's returned tuple must contain a dictionary but contained {type(npz_data)} instead!")
                 if iFrame == 0:
                     for key in npz_data.keys():
                         try:
@@ -132,13 +134,17 @@ def video_chef(
     Thin wrapper around tqdm.contrib.concurrent.process_map.
 
     Arguments:
-        func {python function} -- the processing function. Must accept one video frame as a sole positional arg. Must return either a frame (if output_type is 'video') or a dictionary of scalars (if output_type is 'arr') (default: {None}
+            Must accept one video frame as the sole positional arg. 
+            Must return a tuple. Tuple can contain either:
+                -- a frame (if output_type is 'video') 
+                -- a dictionary of scalars (if output_type is 'arrays')
+                -- both
         path_to_vid {str} -- path to the video to be processed.
 
     Keyword Arguments:
         func_global_kwargs {dict} -- kwargs to pass into the analysis function once, at initialization
         func_frame_kwargs {dict} -- kwargs to pass for each frame (eg {'key1': vals, 'key2': vals}, where vals is an array of same length as the video)
-        output_types {iterable of str} -- 'video' or 'arrays' (default: {['video']})
+        output_types {iterable of str} -- 'video' or 'arrays' (default: {['video']}).
         max_workers {int} -- max_workers for process_map (default: {3})
         frame_batch_size {int} -- n frames processed per worker-batch (default: {500})
         every_nth_frame {int} -- process every nth frame (default: {1})
@@ -188,7 +194,8 @@ def video_chef(
         elif output_type == 'arrays':
             writers_npz_idx = iOutput
             parallel_writer_fullfiles.append([join(tmp_dir, f'proc_{i}.npz') for i in range(len(batch_seq))])
-    
+        else:
+            raise ValueError(f'Unrecognized output_type {output_type}')
     # Zip the writers into pairs
     parallel_writer_fullfiles = list(zip(*parallel_writer_fullfiles))
 
@@ -276,7 +283,9 @@ def video_chef(
                 # each npz contains some set of output var, each of which is a key in the npz.
                 # For each output var, append it to its stitched array.
                 for k in npz.keys():
-                    if k not in results: 
+                    if k not in results:
+                        if type(npz[k]) is not np.ndarray:
+                            raise ValueError(f'Expected output {k} from function to have type np.ndarray but was {type(npz[k])} instead!')
                         results[k] = np.zeros((n_expected_frames, *npz[k].shape[1:]))
                         counters[k] = 0
                     len_ = len(npz[k])
