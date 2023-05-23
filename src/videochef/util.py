@@ -36,7 +36,7 @@ def unwrap_dictionary(dict_):
     # Transform kwarg dict from {'a': vals, 'b': vals, ...} into [{'a': val1, 'b': val1,...}, {'a': val2, 'b': val2,...}, ...]
     tmp_lists = []  # Intermdiate step: first unpack each value for each dict [[{'a':val1, 'a': val2}], [{'b': val1}, {'b':val2}], ...]
     for key in dict_.keys():
-        kwarg_lists.append([{key:v} for v in dict_[key]])
+        tmp_lists.append([{key:v} for v in dict_[key]])
     
     # Then put into desired final form
     final_list = []
