@@ -12,7 +12,7 @@ from setuptools import setup
 
 setup(
     name='videochef',
-    version='0.0.3',
+    version='0.1.0',
     license='MIT',
     description='Whip up some fast, embarrassingly parallel video processing',
     author='Jonah Pearl',
