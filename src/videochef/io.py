@@ -11,10 +11,10 @@ class VideoWriter():
     Inputs should be (nframes) x (w) x (h) x (RGB).
 
     """
-    def __init__(self, file_name, **ffmpeg_options):
+    def __init__(self, file_name, **write_frames_options):
         self.pipe = None
         self.file_name = file_name
-        self.ffmpeg_options = ffmpeg_options
+        self.write_frame_options = write_frames_options
         
     def __enter__(self):
         return self
@@ -25,7 +25,8 @@ class VideoWriter():
             self.pipe.wait()  # wait for ffmpeg to finish so the video is ready to go on the next line of code; otherwise run into weird conditions where video isn't saved to disk yet
         
     def append(self, frames):
-        """Convert frames into an array (nframes) x (w) x (h) x color.
+        """Write frames to the file.
+        Will convert frames into an array (nframes) x (w) x (h) x color, by inference.
         Frames should have color as final dimension, if at all.
 
         Arguments:
@@ -48,14 +49,14 @@ class VideoWriter():
 
         # Set default options if video is in color or gray.
         if is_color:
-            pixel_format = self.ffmpeg_options.pop('pixel_format', 'rgb24')
-            codec = self.ffmpeg_options.pop('codec', 'h264')
+            pixel_format = self.write_frame_options.pop('pixel_format', 'yuv420p')  # output pixel format
+            codec = self.write_frame_options.pop('codec', 'libx264')
         else:
-            pixel_format = self.ffmpeg_options.pop('pixel_format', 'gray8')
-            codec = self.ffmpeg_options.pop('codec', 'ffv1')
+            pixel_format = self.write_frame_options.pop('pixel_format', 'gray8')
+            codec = self.write_frame_options.pop('codec', 'ffv1')
 
-        if type(frames) ==  np.ndarray and len(frames.shape)==2:
-             frames = frames[None]
+        # if type(frames) ==  np.ndarray and len(frames.shape) == 2:
+        #      frames = frames[None]
 
         self.pipe = write_frames(
             self.file_name, 
@@ -63,7 +64,7 @@ class VideoWriter():
             pipe=self.pipe, 
             pixel_format=pixel_format,
             codec=codec,
-            **self.ffmpeg_options
+            **self.write_frame_options
         )
 
 class VideoReader():
