@@ -71,6 +71,28 @@ def peri_event_vid(
         overwrite {bool} -- if True, overwrites any existing video at out_vid_name (default: {False})
 
     Returns: n/a
+
+    Dummy example:
+        # makes peri-event vids from 0.5 sec before to 1.5 sec after the event's frame
+        movie_path = '/path/to/your/movie.mp4'  # at least ~ 1100 frames long for this example
+        fps = 30
+        overwrite = False
+        window = (-0.5, 1.5)
+        event_idx_in_vid = np.arange(0,1000,100)
+        peristim_frames_list = [np.arange(idx+window[0]*vid_fps, idx+window[1]*vid_fps) for idx in event_idx_in_vid]
+        out_vid_name = movie_path.replace('movie', 'perievent_movie')
+        try:
+            videochef.viz.peri_event_vid(
+                movie_path,
+                out_vid_name,
+                peri_evt_frames_list=peristim_frames_list,
+                event_frame_num_in_vid=(0 - window[0])*vid_fps,
+                out_fps=fps/5,  # slow down the output
+                overwrite=overwrite,
+            )
+        except BrokenPipeError:
+            warnings.warn('Encountered broken pipe, skipping...')
+        
     """
 
     # Plan layout to be as close to square as possible
