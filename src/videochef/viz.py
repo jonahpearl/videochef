@@ -53,7 +53,8 @@ def peri_event_vid(
     traces=None,
     trace_to_vid_fs_ratio=None,
     out_fps=12,
-    overwrite=False
+    overwrite=False,
+    **write_frame_kwargs,
 ):
     """Create a tiled gallery of peri-event videos
 
@@ -76,7 +77,7 @@ def peri_event_vid(
     num_stims = len(peri_evt_frames_list)
     nrows = np.ceil(np.sqrt(num_stims)).astype('int')
 
-    # Skip already existing vids?
+    # Skip already existing vids
     if exists(out_vid_name) and not overwrite: 
         return None
 
@@ -88,6 +89,7 @@ def peri_event_vid(
         fps=out_fps, 
         codec='libx264', 
         pixel_format='yuv420p',  
+        **write_frame_kwargs,
     )
     with ExitStack() as stack:
 
