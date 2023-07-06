@@ -10,11 +10,20 @@ class VideoWriter():
     """A simple, ffmpeg-based video writer. Will try to infer grayscale vs. color (use RGB!), and act accordingly.
     Inputs should be (nframes) x (w) x (h) x (RGB).
 
+    Low-level ffmpeg options that you might want to use are:
+        
+        preset {str} -- ffmpeg preset to use. (default: {'veryfast'})
+        stderrfile {str} -- path to send ffmpeg stderr to, if any. Can't capture stderr programatically due to how we write the frames one at a time.
+        crf {int} -- quality factor. Normal default is 23, here we boost it a bit (lower is better), because science. (default: {10})
+        ffmpeg_loglevel {str} -- loglevel for ffmpeg. Useful if you get weird bugs and want to debug.
+
+    VideoWriter will try to detect B/W vs color, and set the pixel format and codec accordingly.
     """
-    def __init__(self, file_name, **write_frames_options):
+    def __init__(self, file_name, verbose=False, **write_frames_options):
         self.pipe = None
         self.file_name = file_name
         self.write_frame_options = write_frames_options
+        self.verbose = verbose
         
     def __enter__(self):
         return self
@@ -22,8 +31,10 @@ class VideoWriter():
     def __exit__(self, type, value, traceback):
         if self.pipe is not None:
             self.pipe.stdin.close()
-            self.pipe.wait()  # wait for ffmpeg to finish so the video is ready to go on the next line of code; otherwise run into weird conditions where video isn't saved to disk yet
-        
+            exitcode = self.pipe.wait()  # wait for ffmpeg to finish so the video is ready to go on the next line of code; otherwise run into weird conditions where video isn't saved to disk yet
+            if exitcode != 0:
+                print("ffmpeg exited with error code: ", exitcode)
+
     def append(self, frames):
         """Write frames to the file.
         Will convert frames into an array (nframes) x (w) x (h) x color, by inference.
@@ -55,8 +66,11 @@ class VideoWriter():
             pixel_format = self.write_frame_options.pop('pixel_format', 'gray8')
             codec = self.write_frame_options.pop('codec', 'ffv1')
 
-        # if type(frames) ==  np.ndarray and len(frames.shape) == 2:
-        #      frames = frames[None]
+        if 'ffmpeg_loglevel' not in self.write_frame_options:
+            if self.verbose:
+                ffmpeg_loglevel = 'info'
+            else:
+                ffmpeg_loglevel = 'error'
 
         self.pipe = write_frames(
             self.file_name, 
@@ -64,6 +78,7 @@ class VideoWriter():
             pipe=self.pipe, 
             pixel_format=pixel_format,
             codec=codec,
+            ffmpeg_loglevel=ffmpeg_loglevel,
             **self.write_frame_options
         )
 
@@ -167,7 +182,8 @@ def write_frames(filename, frames,
                  threads=6, fps=30, crf=10,
                  pixel_format='gray8', codec='ffv1',
                  pipe=None, slices=24, slicecrc=1,
-                 preset='veryfast'):
+                 preset='veryfast', 
+                 stderrfile=None, ffmpeg_loglevel='info'):
     """Use ffmpeg to write frames into a movie
 
     Arguments:
@@ -183,6 +199,9 @@ def write_frames(filename, frames,
         pipe {[type]} -- internal use (default: {None})
         slices {int} -- number of ffmpeg slices (default: {24})
         slicecrc {int} -- ? (default: {1})
+        preset {str} -- ffmpeg preset to use. (default: {'veryfast'})
+        stderrfile {str} -- path to send ffmpeg stderr to, if any. Can't capture stderr programatically due to how we write the frames one at a time.
+        ffmpeg_loglevel {str} -- loglevel for ffmpeg. Info is their default.
 
     Returns:
         [type] -- [description]
@@ -193,7 +212,7 @@ def write_frames(filename, frames,
     if pixel_format == 'gray8' or 'rgb' in pixel_format:
         command = ['ffmpeg',
                 '-y',
-                '-loglevel', 'fatal',
+                '-loglevel', ffmpeg_loglevel,
                 '-framerate', str(fps),
                 '-f', 'rawvideo',
                 '-s', frame_size,
@@ -212,7 +231,7 @@ def write_frames(filename, frames,
         # assume user is passing rgb (unlikely to be passing yuv formatted arrays)
         command = ['ffmpeg',
                 '-y',
-                '-loglevel', 'fatal',
+                '-loglevel', 'info',
                 '-framerate', str(fps),
                 '-f', 'rawvideo',
                 '-s', frame_size,
@@ -230,9 +249,24 @@ def write_frames(filename, frames,
                 filename]
 
 
-    if not pipe: pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    
+    # Prep error logging
+    if stderrfile is not None:
+        errorfile = open(stderrfile, 'a')
+    else:
+        errorfile = None 
+    
+    # Write the frames
+    if not pipe: 
+        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=errorfile)
     dtype = np.uint16 if pixel_format.startswith('gray16') else np.uint8
-    for i in range(frames.shape[0]): pipe.stdin.write(frames[i,...].astype(dtype).tobytes())
+    for i in range(frames.shape[0]): 
+        pipe.stdin.write(frames[i,...].astype(dtype).tobytes())
+
+    # Close file, if open
+    if errorfile is not None:
+        errorfile.close()
+
     return pipe
 
 
@@ -259,7 +293,7 @@ def read_frames(filename, frames, threads=6, fps=30, frames_is_timestamp=False,
     
     command = [
         'ffmpeg',
-        '-loglevel', 'fatal',
+        '-loglevel', 'info',
         '-vsync','0',
         '-ss', start_time,
         '-i', filename,

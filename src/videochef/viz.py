@@ -54,6 +54,7 @@ def peri_event_vid(
     trace_to_vid_fs_ratio=None,
     out_fps=12,
     overwrite=False,
+    verbose=False,
     **write_frame_kwargs,
 ):
     """Create a tiled gallery of peri-event videos
@@ -70,6 +71,12 @@ def peri_event_vid(
         out_fps {int} -- desired fps of written video. Often nice to slow it down. (default: {12})
         overwrite {bool} -- if True, overwrites any existing video at out_vid_name (default: {False})
 
+    Low-level ffmpeg options that can also be passed as kwargs are:
+        preset {str} -- ffmpeg preset to use. (default: {'veryfast'})
+        stderrfile {str} -- path to send ffmpeg stderr to, if any. Can't capture stderr programatically due to how we write the frames one at a time.
+        crf {int} -- quality factor. Normal default is 23, here we boost it a bit (lower is better), because science. (default: {10})
+        ffmpeg_loglevel {str} -- loglevel for ffmpeg. Useful if you get weird bugs and want to debug.
+        
     Returns: n/a
 
     Dummy example:
@@ -95,6 +102,9 @@ def peri_event_vid(
         
     """
 
+    if traces is not None:
+        raise NotImplementedError()
+
     # Plan layout to be as close to square as possible
     num_stims = len(peri_evt_frames_list)
     nrows = np.ceil(np.sqrt(num_stims)).astype('int')
@@ -111,12 +121,13 @@ def peri_event_vid(
         fps=out_fps, 
         codec='libx264', 
         pixel_format='yuv420p',  
+        verbose=verbose,
         **write_frame_kwargs,
     )
     with ExitStack() as stack:
 
         # Get video readers (and they seek to exactly the right place on this line!)
-        print('Getting readers...')
+        if verbose: print('Getting readers...')
         peristim_readers = [
             stack.enter_context(
                 VideoReader(
@@ -126,7 +137,7 @@ def peri_event_vid(
             ) for frames in peri_evt_frames_list
         ]
 
-        print('getting writer')
+        if verbose: print('getting writer')
         writer = stack.enter_context(waiting_writer)
 
         # Iterate through all readers in parallel ((frame0 stim0, frame0 stim1,...), (frame1 stim0, frame1 stim1,...), ...)
@@ -208,6 +219,10 @@ def peri_event_vid(
                     zeros_shape[dim] = 1
                     big_frame = np.concatenate([big_frame, np.zeros(zeros_shape)], axis=dim)
 
+            
+            if verbose: 
+                print(f'Writing frame {ix}...')
+                print(f'Frame shape: {big_frame.shape}')
             writer.append(big_frame)
 
     return
