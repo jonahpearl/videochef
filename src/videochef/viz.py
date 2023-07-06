@@ -200,7 +200,14 @@ def peri_event_vid(
             # Stack the rows (now all identical shapes)
             big_frame = np.vstack(stacked_rows).astype('uint8')
 
-            # Save this frame into the video
+            # Height and width must be divisible by two, at least for libx264
+            for dim in range(big_frame.ndim):
+                big_shape = big_frame.shape
+                if (dim == 0 or dim == 1) and big_shape[dim] % 2 == 1:
+                    zeros_shape = list(big_shape)
+                    zeros_shape[dim] = 1
+                    big_frame = np.concatenate([big_frame, np.zeros(zeros_shape)], axis=dim)
+
             writer.append(big_frame)
 
     return
