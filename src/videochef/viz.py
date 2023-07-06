@@ -80,12 +80,14 @@ def peri_event_vid(
     if exists(out_vid_name) and not overwrite: 
         return None
 
-    # One video per odor/session pair.
+    # libx264 is a better verison of h264.
+    # yuv420 is open-able by quicktime and most video players.
+    # NB, user should still pass in RGB frames -- it will be converted by ffmpeg into yuv (see videochef.io.write_frames()).
     waiting_writer = VideoWriter(
         out_vid_name, 
         fps=out_fps, 
-        codec='h264', 
-        pixel_format='rgb24'  # 8 bit, 3 colors
+        codec='libx264', 
+        pixel_format='yuv420p',  
     )
     with ExitStack() as stack:
 

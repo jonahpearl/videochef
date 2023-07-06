@@ -165,26 +165,69 @@ class VideoReader():
 def write_frames(filename, frames, 
                  threads=6, fps=30, crf=10,
                  pixel_format='gray8', codec='ffv1',
+                 pipe=None, slices=24, slicecrc=1,
                  pipe=None, slices=24, slicecrc=1):
+    """Use ffmpeg to write frames into a movie
+
+    Arguments:
+        filename {str} -- full filename of video to write
+        frames {iterable of arrays} -- the frames to write. Should be numpy arrays (probably uint8's)
+
+    Keyword Arguments:
+        threads {int} -- n threads for ffmpeg (default: {6})
+        fps {int} -- desired output fps (default: {30})
+        crf {int} -- quality factor. Normal default is 23, here we boost it a bit (lower is better), because science. (default: {10})
+        pixel_format {str} -- output pixel format. For quicktime playable movies, use "yuv420p" and pass 3D frames (). (default: {'gray8'})
+        codec {str} -- video codec to use. For color, prefer "libx264" (default: {'ffv1'})
+        pipe {[type]} -- internal use (default: {None})
+        slices {int} -- number of ffmpeg slices (default: {24})
+        slicecrc {int} -- ? (default: {1})
+
+    Returns:
+        [type] -- [description]
+    """
     
     frame_size = '{0:d}x{1:d}'.format(frames.shape[2], frames.shape[1])
-    command = ['ffmpeg',
-               '-y',
-               '-loglevel', 'fatal',
-               '-framerate', str(fps),
-               '-f', 'rawvideo',
-               '-s', frame_size,
-               '-pix_fmt', pixel_format,
-               '-i', '-',
-               '-an',
-               '-crf',str(crf),
-               '-vcodec', codec,
-               '-preset', 'ultrafast',
-               '-threads', str(threads),
-               '-slices', str(slices),
-               '-slicecrc', str(slicecrc),
-               '-r', str(fps),
-               filename]
+
+    if pixel_format == 'gray8' or 'rgb' in pixel_format:
+        command = ['ffmpeg',
+                '-y',
+                '-loglevel', 'fatal',
+                '-framerate', str(fps),
+                '-f', 'rawvideo',
+                '-s', frame_size,
+                '-pix_fmt', pixel_format,
+                '-i', '-',
+                '-an',
+                '-crf',str(crf),
+                '-vcodec', codec,
+                '-preset', preset,
+                '-threads', str(threads),
+                '-slices', str(slices),
+                '-slicecrc', str(slicecrc),
+                '-r', str(fps),
+                filename]
+    elif 'yuv' in pixel_format:
+        # assume user is passing rgb (unlikely to be passing yuv formatted arrays)
+        command = ['ffmpeg',
+                '-y',
+                '-loglevel', 'fatal',
+                '-framerate', str(fps),
+                '-f', 'rawvideo',
+                '-s', frame_size,
+                '-pix_fmt', 'rgb24',  # user will pass input as rgb...
+                '-i', '-',
+                '-an',
+                '-crf',str(crf),
+                '-c:v', 'libx264',
+                '-pix_fmt', pixel_format,  # ...but output will be converted to yuv
+                '-preset', preset,
+                '-threads', str(threads),
+                '-slices', str(slices),
+                '-slicecrc', str(slicecrc),
+                '-r', str(fps),
+                filename]
+
 
     if not pipe: pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     dtype = np.uint16 if pixel_format.startswith('gray16') else np.uint8
