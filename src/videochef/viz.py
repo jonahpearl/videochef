@@ -116,7 +116,10 @@ def peri_event_vid(
             for iReader, frame in enumerate(frames):
 
                 # Convert frame to RGB if it isn't already
-                frame = np.stack(3 * (frame,), axis=-1)
+                if frame.ndim == 2:
+                    frame = np.stack(3 * (frame,), axis=-1)
+                elif frame.ndim != 3:
+                    raise ValueError('Expected 3D frames but got frames of shape {frame.shape}')
 
                 # Append a mark for whether event fr has passed or not
                 if event_frame_num_in_vid is not None:
