@@ -166,7 +166,7 @@ def write_frames(filename, frames,
                  threads=6, fps=30, crf=10,
                  pixel_format='gray8', codec='ffv1',
                  pipe=None, slices=24, slicecrc=1,
-                 pipe=None, slices=24, slicecrc=1):
+                 preset='veryfast'):
     """Use ffmpeg to write frames into a movie
 
     Arguments:
