@@ -15,7 +15,7 @@ When should you use videochef vs. other python video libraries?
 
 | You want to... you should use... | [imageio](https://github.com/imageio/imageio) | [decord](https://github.com/dmlc/decord) | videochef |
 | ---          | ---     | ---    | ---       |
-write video quickly... | maybe | n/a (doesn't handle writing) | **yes!**
+write video quickly... | meh | n/a (doesn't handle writing) | **yes!**
 read video quickly and just extract frames... | meh | [**yes!**](https://medium.com/@haydenfaulkner/extracting-frames-fast-from-a-video-using-opencv-and-python-73b9b7dc9661) | meh
 read video and run the same analysis on every frame... | meh | meh | **yes -- parallel!**
 grab random / sparse frames from a video for NN training... | no | **yes!** | no
@@ -85,6 +85,10 @@ videochef.chef.video_chef(
 Caleb Weinreb wrote the core ffmpeg code, the initial reader/writer classes, and the peri-event gallery code. Jonah Pearl wrote the parallel processing module, updated the reader class to be more efficient, and updated the writer class to "just work" with color videos. 
 
 ## Roadmap
+
+* properly benchmark!
+* figure out GPU encoding for writer
+
 Tested and works well with:
 * AVI files, encoded with `ffv1`, and pixel format `gray8`
 * MP4 files, encoded with `h264`, and pixel format `yuvj420`
