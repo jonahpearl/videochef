@@ -25,7 +25,61 @@ grab precise, aligned chunks of video for peri-event analysis... | no | meh | **
 `pip install videochef`, or clone the repo and `pip install -e .` from inside the repo.
 
 ## Examples
-TODO
+
+Easily read only frames that match across streams:
+
+```python
+matched_frames = [[0,2,4], [1,3,5]]  # say the second camera started 1 frame early, and each camera dropped a frame.
+with VideoReader('/path/to/vid0.avi', frame_ixs=matched_frames[0],) as bottom_vid, \
+    VideoReader('/path/to/vid1.avi', frame_ixs=matched_frames[1],) as top_vid:
+    for i, (top_frame, bottom_frame) in enumerate(zip(top_vid, bottom_vid)):
+        # do some analysis on the matched frames
+```
+
+Make peri-stimulus video galleries:
+```python
+
+stim_frames = [6000, 8020, 12100, 15001]  # some recurring stimulus or event
+fps = 30
+window = (-1,1)  # seconds
+peri_evt_frames_list = [np.arange(fr + window[0]*fps, fr + window[1]*fps) for fr in stim_frames]
+
+videochef.viz.peri_event_vid(
+    '/path/to/vid.avi',
+    '/path/to/peristim_vid.avi',
+    peri_evt_frames_list=peri_evt_frames_list,
+    event_frame_num_in_vid=(0 - window[0])*fps,  # event onset will be marked in the corner
+    out_fps=fps/2,
+)
+
+```
+
+Do some complex analysis on every other frame of a video, in parallel (requires multiple CPUs):
+```python
+def my_complex_analysis(frame):
+    """Takes one video frame and analyzes it, returning an annotated frame and some scalars.
+
+    Returns:
+        A tuple!
+    """
+    # ... processing ...
+    processed_frame = frame + 1  # dumb example
+    scalar_results_dict = dict(attr1='foo', attr2='bar')
+    return (processed_frame, scalar_results_dict)
+
+step = 2
+videochef.chef.video_chef(
+    my_complex_analysis,
+    '/path/to/my/vid.avi',
+    output_types=['video', 'arrays'],  # arrays will be saved as npz's
+    max_workers=3,  # ncpus - 1
+    every_nth_frame=step,
+    proc_suffix='_complexly_analyzed',
+)
+
+```
+
+
 
 ## Authors
 Caleb Weinreb wrote the core ffmpeg code, the initial reader/writer classes, and the peri-event gallery code. Jonah Pearl wrote the parallel processing module, updated the reader class to be more efficient, and updated the writer class to "just work" with color videos. 
