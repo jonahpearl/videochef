@@ -26,6 +26,9 @@ grab precise, aligned chunks of video for peri-event analysis... | no | meh | **
 ## Examples
 TODO
 
+## Authors
+Caleb Weinreb wrote the core ffmpeg code, the initial reader/writer classes, and the peri-event gallery code. Jonah Pearl wrote the parallel processing module, updated the reader class to be more efficient, and updated the writer class to "just work" with color videos. 
+
 ## Roadmap
 Tested and works well with:
 * AVI files, encoded with `ffv1`, and pixel format `gray8`
