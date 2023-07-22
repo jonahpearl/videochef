@@ -22,7 +22,7 @@ grab random / sparse frames from a video for NN training... | no | **yes!** | no
 grab precise, aligned chunks of a video for peri-event analysis... | no | meh | **yes!**
 
 ## Install
-`pip install videochef`, or clone the repo and `pip install -e .` from inside the repo.
+`pip install videochef`, or clone the repo and `pip install -e .` from inside the repo. Don't forget to use a conda env or a venv!
 
 ## Examples
 
