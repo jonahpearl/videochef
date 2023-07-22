@@ -32,3 +32,5 @@ Tested and works well with:
 * MP4 files, encoded with `h264`, and pixel format `yuvj420`
 * Likely works well with most grayscale AVIs and color/gray MP4s. Other formats tbd.
 
+## Citations
+Logo adapted from [freepik](https://www.freepik.com/free-vector/collection-hand-drawn-chef-hats_1118072.htm#query=chef%20hat&position=8&from_view=search&track=ais)
