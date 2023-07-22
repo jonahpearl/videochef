@@ -18,8 +18,8 @@ When should you use videochef vs. other python video libraries?
 write video quickly... | maybe | n/a (doesn't handle writing) | **yes!**
 read video quickly and just extract frames... | no | [**yes!**](https://medium.com/@haydenfaulkner/extracting-frames-fast-from-a-video-using-opencv-and-python-73b9b7dc9661) | meh
 read video and run the same analysis on every frame... | meh | meh | **yes -- parallel!**
-grab random / sparse frames from my video for NN training... | no | **yes!** | no
-grab precise, aligned chunks of video for peri-event analysis... | no | meh | **yes!**
+grab random / sparse frames from a video for NN training... | no | **yes!** | no
+grab precise, aligned chunks of a video for peri-event analysis... | no | meh | **yes!**
 
 ## Install
 `pip install videochef`, or clone the repo and `pip install -e .` from inside the repo.
