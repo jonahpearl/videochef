@@ -6,6 +6,7 @@ Videochef is a Python library that makes it easier to work with videos in scient
 
 Features include:
 * VideoReader and VideoWriter classes that are fast and "just work"
+* Precise frame counting in VideoReader makes it easy to align videos across multiple cameras that may have sparse dropped frames or slightly differing start and end points
 * Batch processing of embarassingly parallel analyses (requires multiple CPUs)
 * Easy creation of peri-event video galleries
 * ..._your contributed feature here!_...
