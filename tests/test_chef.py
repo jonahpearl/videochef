@@ -1,14 +1,14 @@
-from os.path import join, dirname, realpath, isfile, exists
-from os import listdir, makedirs, rmdir, remove
-import os
-from videochef.io import VideoReader, VideoWriter
-from videochef.util import dummy_process, dummy_process_arrays, dummy_process_vid_and_arrays, count_frames
-from videochef.chef import video_chef
+from os.path import dirname, isfile, join, realpath
+
 import numpy as np
-import pytest
-
-import pdb
-
+from videochef.chef import video_chef
+from videochef.io import VideoReader, VideoWriter
+from videochef.util import (
+    count_frames,
+    dummy_process,
+    dummy_process_arrays,
+    dummy_process_vid_and_arrays,
+)
 
 TEST_DATA_DIR = join(dirname(realpath(__file__)), '../test_data')
 # FIXTURE_DIR = join(dirname(realpath(__file__)), '../test_data')
@@ -23,13 +23,11 @@ def test_compare_serial_and_cheffed_labeled_avi(tmp_path):
     path = str(TEST_DATA_DIR)
     assert isfile(join(path, 'labeled_frames.avi'))
     test_movie = join(path, 'labeled_frames.avi')
-    
 
     # First, process it serially
     print('Processing serially...')
     serial_vid_name = join(tmp_path, 'proc.avi')
-    with VideoReader(test_movie) as raw_vid, \
-        VideoWriter(serial_vid_name) as serial_vid:
+    with VideoReader(test_movie) as raw_vid, VideoWriter(serial_vid_name) as serial_vid:
         for frame in raw_vid:
             out = dummy_process(frame)  # returns a tuple of (frame,)
             serial_vid.append(out[0])
@@ -56,7 +54,7 @@ def test_compare_serial_and_cheffed_labeled_avi(tmp_path):
 
 
 def test_array_func(tmp_path):
-    
+
     # Set up
     path = str(TEST_DATA_DIR)
     assert isfile(join(path, 'labeled_frames.avi'))

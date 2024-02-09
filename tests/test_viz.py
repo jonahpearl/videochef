@@ -1,16 +1,12 @@
-from os.path import join, dirname, realpath, isfile, exists
-from os import listdir, makedirs, rmdir, remove
-import os
-from videochef.io import VideoReader, VideoWriter
-from videochef.util import count_frames
-from videochef.viz import peri_event_vid
-import numpy as np
-import pytest
+from os.path import dirname, isfile, join, realpath
 from time import sleep
 
-import pdb
+import numpy as np
+from videochef.util import count_frames
+from videochef.viz import peri_event_vid
 
 TEST_DATA_DIR = join(dirname(realpath(__file__)), '../test_data')
+
 
 def test_peri_event_vid(tmp_path):
 
