@@ -1,18 +1,11 @@
-import io
-import re
 from glob import glob
-from os.path import basename
-from os.path import dirname
-from os.path import join
-from os.path import splitext
+from os.path import basename, splitext
 
-from setuptools import find_packages
-from setuptools import setup
-
+from setuptools import find_packages, setup
 
 setup(
     name="videochef",
-    version="0.1.2",
+    version="0.2.0",
     license="MIT",
     description="Whip up some fast, embarrassingly parallel video processing",
     author="Jonah Pearl",
