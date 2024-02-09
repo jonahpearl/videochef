@@ -1,17 +1,15 @@
-from os.path import join, dirname, exists, basename, splitext
-from os import mkdir, listdir, remove
-import numpy as np
-from tqdm.contrib.concurrent import process_map
-from itertools import repeat
+from contextlib import ExitStack
 from functools import partial
-from videochef.io import VideoReader, VideoWriter
-from videochef.util import make_batch_sequence, count_frames, unwrap_dictionary
-from time import sleep
+from itertools import repeat
+from os import listdir, mkdir, remove
+from os.path import basename, dirname, exists, join, splitext
 from warnings import warn
 
-from contextlib import ExitStack
+import numpy as np
+from tqdm.contrib.concurrent import process_map
 
-import pdb
+from videochef.io import VideoReader, VideoWriter
+from videochef.util import count_frames, make_batch_sequence, unwrap_dictionary
 
 
 def parallel_proc_frame(

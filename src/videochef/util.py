@@ -1,5 +1,5 @@
-import numpy as np
 import av
+import numpy as np
 
 
 def make_batch_sequence(nframes, chunk_size, overlap, offset=0, step=1):

@@ -3,7 +3,9 @@ import av
 import subprocess
 import datetime
 import os
+import warnings
 
+import pdb
 
 class VideoWriter:
     """A simple, ffmpeg-based video writer. Will try to infer grayscale vs. color (use RGB!), and act accordingly.

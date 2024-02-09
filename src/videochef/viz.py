@@ -1,13 +1,11 @@
-import imageio as iio
 from contextlib import ExitStack
-from videochef.io import VideoReader, VideoWriter
-from tqdm.notebook import tqdm
+from os.path import exists
+
 import cv2
 import numpy as np
-from os.path import join, dirname, realpath, isfile, exists
-from os import listdir, makedirs, rmdir, remove
+from tqdm.auto import tqdm
 
-import pdb
+from videochef.io import VideoReader, VideoWriter
 
 
 def add_titles(
