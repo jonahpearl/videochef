@@ -7,6 +7,7 @@ import warnings
 
 import pdb
 
+
 class VideoWriter:
     """A simple, ffmpeg-based video writer. Will try to infer grayscale vs. color (use RGB!), and act accordingly.
     Inputs should be (nframes) x (w) x (h) x (RGB).
@@ -94,17 +95,17 @@ class VideoReader:
         """
         A simple video reader that uses PyAV to read in frames from a video file.
 
-        Parameters 
+        Parameters
         ----------
         file_name : str
             Full path to the video file.
-        
+
         frame_ixs : list or array, optional
             List of frame indices to read in. If None, will read in all frames. (default: None)
-        
+
         reporter_val : int, optional
             If not None, will print out the frame number being read in. Used for debugging. (default: None)
-        
+
         mp4_to_gray : bool, optional
             If True, will convert mp4s to grayscale. (default: False)
 
@@ -145,7 +146,7 @@ class VideoReader:
         self.time_base = self.reader.streams.video[0].time_base
         self.start_time = self.reader.streams.video[0].start_time
 
-        # Check frame_ixs is within an ok range 
+        # Check frame_ixs is within an ok range
         if self.frame_ixs is not None:
             assert self.frame_ixs.max() < self.reader.streams.video[0].frames
         else:
@@ -176,7 +177,7 @@ class VideoReader:
                 break  # instead of returning the frame, we'll just break and let the frame_gen yield it
 
     def frame_gen(self, reader):
-        """ Yield frames from the video file.
+        """Yield frames from the video file.
         Will fast-seek to the next frame if the difference between the current frame and the next frame is greater than the fask_seek_threshold.
 
         Parameters
@@ -188,7 +189,9 @@ class VideoReader:
 
             # Fask-seek to the next frame if needed
             if (frame_ix - self.current_frame_ix) > self.fask_seek_threshold:
-                self._precise_seek(frame_ix - 1)  # seek to the frame before the one we want, so that the next call to next(reader) will give us the frame we want
+                self._precise_seek(
+                    frame_ix - 1
+                )  # seek to the frame before the one we want, so that the next call to next(reader) will give us the frame we want
 
             # Else just read frames normally until we get to the next desired frame
             elif (frame_ix - self.current_frame_ix) > 0:
