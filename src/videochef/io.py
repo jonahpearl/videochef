@@ -89,21 +89,50 @@ class VideoWriter:
 
 class VideoReader:
     def __init__(self, file_name, frame_ixs=None, reporter_val=None, mp4_to_gray=False):
+        """
+        A simple video reader that uses PyAV to read in frames from a video file.
+
+        Parameters 
+        ----------
+        file_name : str
+            Full path to the video file.
+        
+        frame_ixs : list or array, optional
+            List of frame indices to read in. If None, will read in all frames. (default: None)
+        
+        reporter_val : int, optional
+            If not None, will print out the frame number being read in. Used for debugging. (default: None)
+        
+        mp4_to_gray : bool, optional
+            If True, will convert mp4s to grayscale. (default: False)
+
+        """
+
         self.file_name = file_name
         self.file_ext = os.path.splitext(self.file_name)[1]
-        self.frame_ixs = frame_ixs
         self.reporter_val = reporter_val
         self.mp4_to_gray = mp4_to_gray
+        self.current_frame_ix = -1
 
         if frame_ixs is not None:
-            self.first_frame_ix = int(np.min(frame_ixs))
+            if isinstance(frame_ixs, int):
+                frame_ixs = [frame_ixs]
+            if isinstance(frame_ixs, list):
+                frame_ixs = np.array(frame_ixs)
+            if frame_ixs.ndim > 1:
+                warnings.warn("frame_ixs should be 1D, not 2D. Flattening it.")
+                frame_ixs = frame_ixs.ravel()
+            self.frame_ixs = np.sort(frame_ixs)
             self.final_frame_ix = int(np.max(frame_ixs))
         else:
-            self.first_frame_ix = 0
+            self.frame_ixs = None
             self.final_frame_ix = None
 
         if self.reporter_val is not None:
             self.reporter_val = int(reporter_val)
+
+        # TODO: calculate threshold above which to use fast_seek
+        self.fask_seek_threshold = 1000  # nframes
 
     def __enter__(self):
         self.reader = av.open(self.file_name, "r")
@@ -114,24 +143,15 @@ class VideoReader:
         self.time_base = self.reader.streams.video[0].time_base
         self.start_time = self.reader.streams.video[0].start_time
 
-        # Create frame mask
-        frame_mask = np.zeros(self.reader.streams.video[0].frames)
+        # Check frame_ixs is within an ok range 
         if self.frame_ixs is not None:
-            assert self.frame_ixs.max() < len(
-                frame_mask
-            ), "frame_ixs exceeds the video length"
-            frame_mask[self.frame_ixs.astype(int)] = 1
+            assert self.frame_ixs.max() < self.reader.streams.video[0].frames
         else:
-            frame_mask[:] = 1
-
-        # Seek to first frame to use. When found, pass it to the frame_gen func for use as the first frame.
-        if self.first_frame_ix != 0:
-            self.first_frame_to_yield = self._precise_seek(self.first_frame_ix)
-        else:
-            self.first_frame_to_yield = None
+            # Make frame_ixs if it's not already made
+            self.frame_ixs = np.arange(self.reader.streams.video[0].frames)
 
         # Return a generator object that will decode the frames into np arrays
-        return self.frame_gen(self.reader.decode(video=0), frame_mask)
+        return self.frame_gen(self.reader.decode(video=0))
 
     def _plain_frame_gen(self):
         for packet in self.reader.demux(
@@ -146,31 +166,39 @@ class VideoReader:
         target_pts = int(target_sec / self.time_base) + self.start_time
         self.reader.seek(target_pts, stream=self.reader.streams.video[0])
         for frame in self._plain_frame_gen():
-            # if frame.pts >= frame_num_to_seek:  # fails on mp4s
-            frame_num = frame.time * self.rate  # this seems more reliable
-            if frame_num >= frame_num_to_seek:
-                return frame
+            # frame_num = np.round(frame.time * self.rate, 0)  # this seems more reliable
+            # print(frame_num, frame_num_to_seek)
+            # if frame_num >= frame_num_to_seek:
+            if frame.pts >= target_pts:
+                # return frame
+                break  # instead of returning the frame, we'll just break and let the frame_gen yield it
 
-    def frame_gen(self, reader, frame_mask):
+    def frame_gen(self, reader):
+        """ Yield frames from the video file.
+        Will fast-seek to the next frame if the difference between the current frame and the next frame is greater than the fask_seek_threshold.
 
-        # Handle initial boundary condition from precise seeking
-        if self.first_frame_to_yield is not None:
-            self.ix_offset = 1
-            yield self.convert_frame_to_np(self.first_frame_to_yield)
-        else:
-            self.ix_offset = 0
+        Parameters
+        ----------
+        reader : av container
+            PyAV container object that contains the video file.
+        """
+        for frame_ix in self.frame_ixs:
 
-        # Then yield subsequent frames
-        for relative_ix, frame in enumerate(reader):
-            ix = (
-                relative_ix + self.first_frame_ix + self.ix_offset
-            )  # since enumerate always starts at 0, even if frame is not 0th frame
-            if self.reporter_val:
-                print(f"read frame {ix} from reader {self.reporter_val}")
-            if self.final_frame_ix is not None and (ix > self.final_frame_ix):
-                break  # short circuit to speed up multiprocessing
-            if frame_mask[ix]:
-                yield self.convert_frame_to_np(frame)
+            # Fask-seek to the next frame if needed
+            if (frame_ix - self.current_frame_ix) > self.fask_seek_threshold:
+                self._precise_seek(frame_ix - 1)  # seek to the frame before the one we want, so that the next call to next(reader) will give us the frame we want
+
+            # Else just read frames normally until we get to the next desired frame
+            elif (frame_ix - self.current_frame_ix) > 0:
+                for _ in range(frame_ix - self.current_frame_ix - 1):
+                    next(reader)
+
+            # Yield the frame
+            self.current_frame_ix = frame_ix
+            yield self.convert_frame_to_np(next(reader))
+
+            if self.reporter_val is not None:
+                print(f"read frame {frame_ix} from reader {self.reporter_val}")
 
     def convert_frame_to_np(self, frame):
         if self.file_ext == ".avi" and self.codec == "ffv1" and "gray" in self.pix_fmt:
