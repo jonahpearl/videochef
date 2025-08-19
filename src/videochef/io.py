@@ -251,6 +251,7 @@ def write_frames(
     fps=30,
     crf=10,
     pixel_format="gray8",
+    scale=None,
     codec="ffv1",
     pipe=None,
     slices=24,
@@ -270,6 +271,7 @@ def write_frames(
         fps {int} -- desired output fps (default: {30})
         crf {int} -- quality factor. Normal default is 23, here we boost it a bit (lower is better), because science. (default: {10})
         pixel_format {str} -- output pixel format. For quicktime playable movies, use "yuv420p" and pass 3D frames (). (default: {'gray8'})
+        scale {str} -- scale the video to a specific size (default: {None})
         codec {str} -- video codec to use. For color, prefer "libx264" (default: {'ffv1'})
         pipe {[type]} -- internal use (default: {None})
         slices {int} -- number of ffmpeg slices (default: {24})
@@ -353,6 +355,10 @@ def write_frames(
             str(fps),
             filename,
         ]
+
+    if scale is not None:
+        idx = command.index("-an") + 1
+        command[idx:idx] = ["-vf", f"scale={scale}"]
 
     # Prep error logging
     if stderrfile is not None:
