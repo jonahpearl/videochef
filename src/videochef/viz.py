@@ -46,6 +46,7 @@ def peri_event_vid(
     out_vid_name,
     peri_evt_frames_list,
     event_frame_num_in_vid=None,
+    event_end_frame_num_in_vid=None,
     traces=None,
     trace_to_vid_fs_ratio=None,
     out_fps=12,
@@ -60,6 +61,7 @@ def peri_event_vid(
         out_vid_name {path} -- video to write
         peri_evt_frames_list {list of iterables} -- peri-event frame lists for each event
         event_frame_num_in_vid {int} -- if passed, mark before/after each event onset with a hollow/filled circle. Otherwise not shown.
+        event_end_frame_num_in_vid {int} -- if passed, change the circle back to hollow at this frame (after the event is over).
 
     Keyword Arguments:
         traces {array} -- TODO: allow user to display sync'd traces (default: {None})
@@ -163,10 +165,16 @@ def peri_event_vid(
 
                 # Append a mark for whether event fr has passed or not
                 if event_frame_num_in_vid is not None:
-                    if ix < event_frame_num_in_vid:
-                        fill = 1
-                    else:
+                    fill = 1
+                    if (
+                        (ix >= event_frame_num_in_vid) 
+                        and (
+                            (event_end_frame_num_in_vid is None)
+                            or (ix < event_end_frame_num_in_vid)
+                        )
+                    ):
                         fill = -1  # for some reason, -1 fills it
+
                     frame = cv2.circle(frame, (18, 96), 15, (0, 255, 0), fill)
 
                 # Mark traces if requested

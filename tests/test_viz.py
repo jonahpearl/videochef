@@ -17,13 +17,16 @@ def test_peri_event_vid(tmp_path):
 
     # Prep the peri-event fr lists
     peri_evt_frames_list = [np.arange(i, i + 10) for i in np.arange(0, 300, 30)]
-    out_vid = join(tmp_path, "labeled_frames_PERIEVT.avi")
+    # out_vid = join(tmp_path, "labeled_frames_PERIEVT.mp4")
+    out_vid = join(TEST_DATA_DIR, "labeled_frames_PERIEVT.mp4")
 
     # Make the peri-event vid
     peri_event_vid(
         test_movie,
         out_vid,
         peri_evt_frames_list,
+        event_frame_num_in_vid=5,
+        event_end_frame_num_in_vid=7,
         out_fps=10,
         overwrite=True,
     )
