@@ -1,4 +1,5 @@
 #!/bin/bash
 
-python3 -m build
-python3 -m twine upload --repository pypi dist/*
+rm -rf dist
+python -m build
+python -m twine upload --repository pypi dist/*
